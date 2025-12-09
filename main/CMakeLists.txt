@@ -1,0 +1,31 @@
+idf_component_register(
+                         SRCS 
+                              "./main.c" 
+                              "./EXIO/TCA9554PWR.c"
+                              "./LCD_Driver/esp_lcd_st77916/esp_lcd_st77916.c" 
+                              "./LCD_Driver/ST77916.c"       
+                              "./LVGL_Driver/LVGL_Driver.c"
+                              "./LVGL_UI/LVGL_Example.c"
+                              "./SD_Card/SD_MMC.c" 
+                              "./I2C_Driver/I2C_Driver.c"
+                              "./PCF85063/PCF85063.c"
+                              "./QMI8658/QMI8658.c"
+                              "./BAT_Driver/BAT_Driver.c"
+                              "./PWR_Key/PWR_Key.c"
+                              "./Wireless/Wireless.c"
+
+                         INCLUDE_DIRS 
+                              "./LCD_Driver/esp_lcd_st77916" 
+                              "./LCD_Driver"   
+                              "./LVGL_Driver" 
+                              "./LVGL_UI" 
+                              "./EXIO"
+                              "./SD_Card" 
+                              "./I2C_Driver"
+                              "./PCF85063"
+                              "./QMI8658"
+                              "./BAT_Driver"
+                              "./PWR_Key"
+                              "./Wireless"
+                              "."
+                       )

@@ -1,0 +1,38 @@
+# ESP-IDF Build files
+build/
+*.bin
+*.elf
+*.map
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# ESP-IDF specific
+sdkconfig.old
+sdkconfig.defaults.old
+
+# IDE
+.vscode/
+.idea/
+*.code-workspace
+.clangd
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Dependencies lock (can be regenerated)
+# dependencies.lock
+
+# Temporary files
+*.tmp
+*.log
+*.bak
+

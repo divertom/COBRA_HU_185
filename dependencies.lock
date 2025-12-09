@@ -1,0 +1,24 @@
+dependencies:
+  espressif/esp-dsp:
+    dependencies: []
+    source:
+      path: E:\Cobra\COBRA_HU_185\components\espressif__esp-dsp
+      type: local
+    version: 1.4.12
+  idf:
+    source:
+      type: idf
+    version: 5.5.1
+  lvgl/lvgl:
+    dependencies: []
+    source:
+      path: E:\Cobra\COBRA_HU_185\components\lvgl__lvgl
+      type: local
+    version: 8.3.11
+direct_dependencies:
+- espressif/esp-dsp
+- idf
+- lvgl/lvgl
+manifest_hash: 91562cf6a52b9742614ff55fc1480de2804527475a55afd562c2733bae4d5031
+target: esp32s3
+version: 2.0.0
