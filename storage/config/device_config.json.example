@@ -1,0 +1,17 @@
+{
+  "device_name": "COBRA_HU_185",
+  "version": "1.0.0",
+  "wifi": {
+    "ssid": "YourWiFiSSID",
+    "password": "YourWiFiPassword"
+  },
+  "display": {
+    "brightness": 80,
+    "timeout": 30
+  },
+  "settings": {
+    "language": "en",
+    "timezone": "UTC"
+  }
+}
+

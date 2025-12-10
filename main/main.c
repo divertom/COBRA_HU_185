@@ -7,6 +7,9 @@
 #include "LVGL_Example.h"
 #include "BAT_Driver.h"
 #include "PWR_Key.h"
+#include "Storage_Manager.h"
+#include "Boot_Logo.h"
+#include "esp_log.h"
 
 void Driver_Loop(void *parameter)
 {
@@ -41,28 +44,34 @@ void Driver_Init(void)
 }
 void app_main(void)
 {
-    Driver_Init();
+    // Initialize SPIFFS storage first
+    ESP_LOGI("main", "Initializing SPIFFS storage");
+    if (storage_init() != ESP_OK) {
+        ESP_LOGE("main", "Failed to initialize SPIFFS");
+    }
 
-    SD_Init();
-    LCD_Init();
-    LVGL_Init();   // returns the screen object
-
-// /********************* Demo *********************/
-    // Only run one demo at a time - each demo creates its own screen
-    // Lvgl_Example1();
-    lv_demo_widgets();
-    //lv_demo_keypad_encoder();
-    //lv_demo_benchmark();
-    //lv_demo_stress();
-    // lv_demo_music();
+    // Initialize LCD with backlight OFF
+    ESP_LOGI("main", "Initializing LCD (backlight OFF)");
+    LCD_Init();  // Backlight will remain OFF (set to 0 in Backlight_Init)
     
-    // Use your custom example instead
-    //Lvgl_Example1();
+    // Initialize LVGL
+    ESP_LOGI("main", "Initializing LVGL");
+    LVGL_Init();
+    
+    // Display boot logo from SPIFFS storage
+    // Note: backlight will be enabled automatically inside boot_logo_display() after logo is drawn
+    ESP_LOGI("main", "Displaying boot logo from storage");
+    if (boot_logo_display() == ESP_OK) {
+        ESP_LOGI("main", "Boot logo displayed successfully");
+    } else {
+        ESP_LOGW("main", "Failed to display boot logo, enabling backlight anyway");
+        boot_logo_enable_backlight(70);
+    }
 
+    // Do NOT show any other UI - just keep the logo displayed
     while (1) {
-        // raise the task priority of LVGL and/or reduce the handler period can improve the performance
+        // Only process LVGL timer handler to keep display updated
         vTaskDelay(pdMS_TO_TICKS(10));
-        // The task running lv_timer_handler should have lower priority than that running `lv_tick_inc`
         lv_timer_handler();
     }
 }

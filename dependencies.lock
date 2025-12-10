@@ -2,7 +2,7 @@ dependencies:
   espressif/esp-dsp:
     dependencies: []
     source:
-      path: components/espressif__esp-dsp
+      path: E:\Cobra\COBRA_HU_185\components\espressif__esp-dsp
       type: local
     version: 1.4.12
   idf:
@@ -12,7 +12,7 @@ dependencies:
   lvgl/lvgl:
     dependencies: []
     source:
-      path: components/lvgl__lvgl
+      path: E:\Cobra\COBRA_HU_185\components\lvgl__lvgl
       type: local
     version: 8.3.11
 direct_dependencies:

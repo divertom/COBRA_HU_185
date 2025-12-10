@@ -372,7 +372,8 @@ void Backlight_Init(void)
     ledc_channel_config(&ledc_channel);
     ledc_fade_func_install(0);
     
-    Set_Backlight(LCD_Backlight);      //0~100    
+    // Keep backlight OFF - will be turned on after logo is displayed
+    Set_Backlight(0);      //0~100    
 }
 void Set_Backlight(uint8_t Light)
 {   

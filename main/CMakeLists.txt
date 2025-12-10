@@ -13,6 +13,8 @@ idf_component_register(
                               "./BAT_Driver/BAT_Driver.c"
                               "./PWR_Key/PWR_Key.c"
                               "./Wireless/Wireless.c"
+                              "./Storage_Manager/Storage_Manager.c"
+                              "./Boot_Logo/Boot_Logo.c"
 
                          INCLUDE_DIRS 
                               "./LCD_Driver/esp_lcd_st77916" 
@@ -27,5 +29,7 @@ idf_component_register(
                               "./BAT_Driver"
                               "./PWR_Key"
                               "./Wireless"
+                              "./Storage_Manager"
+                              "./Boot_Logo"
                               "."
                        )

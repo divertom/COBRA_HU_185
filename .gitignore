@@ -36,3 +36,10 @@ Thumbs.db
 *.log
 *.bak
 
+# Optimized image files (can be regenerated)
+storage/images/*.raw
+# Generated header files (hard-coded images - not used, use SPIFFS instead)
+main/**/*_logo.h
+main/**/*_image.h
+main/**/*_bitmap.h
+
