@@ -1,0 +1,16 @@
+{
+  "idf.espIdfPath": "${env:USERPROFILE}/esp/esp-idf",
+  "idf.toolsPath": "${env:USERPROFILE}/.espressif",
+  "idf.gitPath": "git",
+  "idf.adapterTargetName": "esp32s3",
+  "idf.openOcdConfigs": [
+    "board/esp32s3-builtin.cfg"
+  ],
+  "C_Cpp.intelliSenseEngine": "default",
+  "files.associations": {
+    "sdkconfig*": "kconfig"
+  },
+  "idf.currentSetup": "C:/Espressif/frameworks/esp-idf-v5.5.4/",
+  "idf.portWin": "COM4",
+  "idf.flashType": "UART"
+}

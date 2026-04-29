@@ -15,8 +15,8 @@ __pycache__/
 sdkconfig.old
 sdkconfig.defaults.old
 
-# IDE
-.vscode/
+# IDE (keep shared .vscode: ESP-IDF / CMake; ignore personal add-ons)
+.vscode/*.local.json
 .idea/
 *.code-workspace
 .clangd
@@ -28,8 +28,8 @@ Thumbs.db
 *.swo
 *~
 
-# Dependencies lock (can be regenerated)
-# dependencies.lock
+# Dependencies lock (regenerated per machine; local paths are not portable)
+dependencies.lock
 
 # Temporary files
 *.tmp
