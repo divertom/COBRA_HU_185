@@ -68,6 +68,9 @@ void app_main(void)
         boot_logo_enable_backlight(70);
     }
 
+    // Start WiFi/BLE tasks (including Smartremote BLE HID receive).
+    Wireless_Init();
+
     // Do NOT show any other UI - just keep the logo displayed
     while (1) {
         // Only process LVGL timer handler to keep display updated
