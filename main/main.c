@@ -8,7 +8,8 @@
 #include "BAT_Driver.h"
 #include "PWR_Key.h"
 #include "Storage_Manager.h"
-#include "Boot_Logo.h"
+#include "Boot_Logo_Api.h"
+#include "UI_Navigation.h"
 #include "esp_log.h"
 
 void Driver_Loop(void *parameter)
@@ -58,23 +59,31 @@ void app_main(void)
     ESP_LOGI("main", "Initializing LVGL");
     LVGL_Init();
     
-    // Display boot logo from SPIFFS storage
-    // Note: backlight will be enabled automatically inside boot_logo_display() after logo is drawn
-    ESP_LOGI("main", "Displaying boot logo from storage");
-    if (boot_logo_display() == ESP_OK) {
-        ESP_LOGI("main", "Boot logo displayed successfully");
-    } else {
+    // Initialize UX navigation and show boot logo for 5 seconds.
+    if (ux_navigation_init() != ESP_OK) {
+        ESP_LOGE("main", "Failed to initialize UI navigation");
+    }
+    if (ux_navigation_show_boot_logo() != ESP_OK) {
         ESP_LOGW("main", "Failed to display boot logo, enabling backlight anyway");
         boot_logo_enable_backlight(70);
     }
 
-    // Start WiFi/BLE tasks (including Smartremote BLE HID receive).
+    // Start WiFi/BLE tasks (including Smartremote BLE HID receive) and hook UI navigation handlers.
+    Wireless_RegisterRemoteEventHandler(ux_navigation_queue_remote_event);
     Wireless_Init();
 
-    // Do NOT show any other UI - just keep the logo displayed
-    while (1) {
-        // Only process LVGL timer handler to keep display updated
+    for (int i = 0; i < 500; i++) {
         vTaskDelay(pdMS_TO_TICKS(10));
+        lv_timer_handler();
+    }
+
+    if (ux_navigation_show_restored_page() != ESP_OK) {
+        ESP_LOGW("main", "Failed to show restored page");
+    }
+
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(10));
+        ux_navigation_process_events();
         lv_timer_handler();
     }
 }

@@ -23,6 +23,8 @@ typedef enum {
     BT_REMOTE_EVENT_PLAY_PAUSE
 } bt_remote_event_t;
 
+typedef void (*bt_remote_event_handler_t)(bt_remote_event_t event);
+
 
 extern uint16_t BLE_NUM;
 extern uint16_t WIFI_NUM;
@@ -35,3 +37,4 @@ void BLE_Init(void *arg);
 uint16_t BLE_Scan(void);
 void Wireless_LogRemoteEvent(uint16_t usage, bt_remote_event_t event);
 void Wireless_DecodeHidReport(const uint8_t *report_data, uint16_t report_len);
+void Wireless_RegisterRemoteEventHandler(bt_remote_event_handler_t handler);

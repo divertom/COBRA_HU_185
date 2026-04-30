@@ -1,4 +1,5 @@
 #include "Boot_Logo.h"
+#include "Boot_Logo_Api.h"
 #include "ST77916.h"
 #include "Storage_Manager.h"
 #include "esp_log.h"

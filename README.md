@@ -125,3 +125,41 @@ fclose(f);
 - All audio, microphone, touch input, and gesture dependencies have been removed from idf_component.yml
 - Image optimization tools reduce file sizes significantly (RGB565 = 2 bytes/pixel vs PNG compression)
 
+## UX Navigation
+
+The firmware now includes a full-screen page navigation framework driven by the Bluetooth remote.
+
+- Horizontal navigation (Back/Forward):
+  - `Boot Logo -> Clock -> Speed -> Acceleration -> Weather`
+  - Circular wrap is enabled in both directions.
+- Vertical navigation (Volume+/Volume-):
+  - Selects subpages inside the active page.
+- Boot behavior:
+  - Boot logo is shown for 5 seconds on startup.
+  - After timeout, the last selected page/subpage is restored.
+- Persistence:
+  - Active page/subpage is saved in SPIFFS and restored after reboot.
+
+### Navigation Module Layout
+
+The implementation is organized by page and a central navigation module:
+
+- `main/UI_Navigation/` - page registry/order, navigation state, persistence, event processing
+- `main/Page_BootLogo/`
+- `main/Page_Clock/`
+- `main/Page_Speed/`
+- `main/Page_Acceleration/`
+- `main/Page_Weather/`
+
+To reorder pages or insert a new page, edit the page descriptor table in `main/UI_Navigation/UI_Navigation.c`.
+
+## Bluetooth Remote Reconnect Behavior
+
+To improve reconnect reliability after reboot:
+
+- The BLE client now reconnects to the remote by either:
+  - remote name match (`SmartRemote`), or
+  - bonded device address match from NVS.
+- Bonded devices are loaded during BLE init and refreshed after authentication complete.
+- This avoids cases where a previously paired remote does not reconnect because its advertised name is missing or changed.
+

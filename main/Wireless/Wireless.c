@@ -19,16 +19,20 @@ bool BLE_Scan_Finish = 0;
 #define HID_SERVICE_UUID 0x1812
 #define HID_REPORT_CHAR_UUID 0x2A4D
 #define CCCD_UUID 0x2902
+#define MAX_BONDED_DEVICES 8
 
 static esp_gatt_if_t s_gattc_if = ESP_GATT_IF_NONE;
 static bool s_is_connecting = false;
 static bool s_is_connected = false;
+static bt_remote_event_handler_t s_remote_event_handler = NULL;
 static esp_bd_addr_t s_remote_bda = {0};
 static esp_ble_addr_type_t s_remote_addr_type = BLE_ADDR_TYPE_PUBLIC;
 static uint16_t s_conn_id = 0;
 static uint16_t s_hid_service_start = ESP_GATT_ILLEGAL_HANDLE;
 static uint16_t s_hid_service_end = ESP_GATT_ILLEGAL_HANDLE;
 static uint16_t s_hid_report_char_handle = ESP_GATT_ILLEGAL_HANDLE;
+static esp_bd_addr_t s_bonded_bda[MAX_BONDED_DEVICES];
+static uint16_t s_bonded_count = 0;
 
 static esp_ble_scan_params_t ble_scan_params = {
     .scan_type = BLE_SCAN_TYPE_ACTIVE,
@@ -43,6 +47,8 @@ static void gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param);
 static void gattc_cb(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param);
 static void start_ble_scan(void);
 static bool match_target_remote_name(const esp_ble_gap_cb_param_t *scan_rst);
+static bool is_bonded_device(const esp_bd_addr_t bda);
+static void refresh_bonded_device_list(void);
 static bt_remote_event_t usage_to_event(uint16_t usage);
 static bool equals_ignore_case_ascii(const char *a, const char *b, size_t len);
 
@@ -135,6 +141,8 @@ void BLE_Init(void *arg)
         return;
     }
 
+    refresh_bonded_device_list();
+
     /* Request bonding/security so the remote will authenticate before we subscribe notifications. */
     esp_ble_auth_req_t auth_req = ESP_LE_AUTH_BOND; /* Just Works style (no MITM) */
     esp_ble_io_cap_t iocap = ESP_IO_CAP_NONE;        /* No input/output */
@@ -185,6 +193,52 @@ void Wireless_LogRemoteEvent(uint16_t usage, bt_remote_event_t event)
     }
 }
 
+void Wireless_RegisterRemoteEventHandler(bt_remote_event_handler_t handler)
+{
+    s_remote_event_handler = handler;
+}
+
+static bool is_bonded_device(const esp_bd_addr_t bda)
+{
+    for (uint16_t i = 0; i < s_bonded_count; i++) {
+        if (memcmp(s_bonded_bda[i], bda, sizeof(esp_bd_addr_t)) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static void refresh_bonded_device_list(void)
+{
+    s_bonded_count = 0;
+    int dev_num = esp_ble_get_bond_device_num();
+    if (dev_num <= 0) {
+        ESP_LOGI(GATTC_TAG, "No bonded BLE devices in NVS");
+        return;
+    }
+
+    if (dev_num > MAX_BONDED_DEVICES) {
+        dev_num = MAX_BONDED_DEVICES;
+    }
+
+    esp_ble_bond_dev_t dev_list[MAX_BONDED_DEVICES];
+    memset(dev_list, 0, sizeof(dev_list));
+
+    int list_count = dev_num;
+    esp_err_t ret = esp_ble_get_bond_device_list(&list_count, dev_list);
+    if (ret != ESP_OK) {
+        ESP_LOGW(GATTC_TAG, "Failed reading bonded list: %s", esp_err_to_name(ret));
+        return;
+    }
+
+    for (int i = 0; i < list_count; i++) {
+        memcpy(s_bonded_bda[s_bonded_count], dev_list[i].bd_addr, sizeof(esp_bd_addr_t));
+        s_bonded_count++;
+    }
+
+    ESP_LOGI(GATTC_TAG, "Loaded %u bonded BLE device(s)", (unsigned)s_bonded_count);
+}
+
 void Wireless_DecodeHidReport(const uint8_t *report_data, uint16_t report_len)
 {
     if (report_data == NULL || report_len == 0) {
@@ -217,6 +271,9 @@ void Wireless_DecodeHidReport(const uint8_t *report_data, uint16_t report_len)
     }
 
     Wireless_LogRemoteEvent(usage, event);
+    if (s_remote_event_handler != NULL) {
+        s_remote_event_handler(event);
+    }
 }
 
 static bt_remote_event_t usage_to_event(uint16_t usage)
@@ -305,6 +362,9 @@ static void gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
             /* Trigger pairing/bonding security response */
             esp_ble_gap_security_rsp(param->ble_security.ble_req.bd_addr, true);
             break;
+        case ESP_GAP_BLE_AUTH_CMPL_EVT:
+            refresh_bonded_device_list();
+            break;
         case ESP_GAP_BLE_SCAN_PARAM_SET_COMPLETE_EVT:
             start_ble_scan();
             break;
@@ -316,7 +376,9 @@ static void gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
         case ESP_GAP_BLE_SCAN_RESULT_EVT:
             if (param->scan_rst.search_evt == ESP_GAP_SEARCH_INQ_RES_EVT) {
                 BLE_NUM++;
-                if (!s_is_connecting && !s_is_connected && match_target_remote_name(param)) {
+                bool name_match = match_target_remote_name(param);
+                bool bond_match = is_bonded_device(param->scan_rst.bda);
+                if (!s_is_connecting && !s_is_connected && (name_match || bond_match)) {
                     BLE_Scan_Finish = 1;
                     if (WiFi_Scan_Finish == 1) {
                         Scan_finish = 1;
@@ -324,7 +386,11 @@ static void gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
                     memcpy(s_remote_bda, param->scan_rst.bda, sizeof(esp_bd_addr_t));
                     s_remote_addr_type = param->scan_rst.ble_addr_type;
                     s_is_connecting = true;
-                    ESP_LOGI(GATTC_TAG, "Found %s, connecting...", REMOTE_NAME);
+                    if (name_match) {
+                        ESP_LOGI(GATTC_TAG, "Found %s by name, connecting...", REMOTE_NAME);
+                    } else {
+                        ESP_LOGI(GATTC_TAG, "Found bonded remote by address, connecting...");
+                    }
                     esp_ble_gap_stop_scanning();
                 } else {
                     /* Optional debug for name mismatch: only if address is valid and scan_rst is present.

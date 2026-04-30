@@ -15,6 +15,12 @@ idf_component_register(
                               "./Wireless/Wireless.c"
                               "./Storage_Manager/Storage_Manager.c"
                               "./Boot_Logo/Boot_Logo.c"
+                              "./Page_BootLogo/Page_BootLogo.c"
+                              "./Page_Clock/Page_Clock.c"
+                              "./Page_Speed/Page_Speed.c"
+                              "./Page_Acceleration/Page_Acceleration.c"
+                              "./Page_Weather/Page_Weather.c"
+                              "./UI_Navigation/UI_Navigation.c"
 
                          INCLUDE_DIRS 
                               "./LCD_Driver/esp_lcd_st77916" 
@@ -31,5 +37,11 @@ idf_component_register(
                               "./Wireless"
                               "./Storage_Manager"
                               "./Boot_Logo"
+                              "./Page_BootLogo"
+                              "./Page_Clock"
+                              "./Page_Speed"
+                              "./Page_Acceleration"
+                              "./Page_Weather"
+                              "./UI_Navigation"
                               "."
                        )
