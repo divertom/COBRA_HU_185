@@ -11,7 +11,8 @@
   },
   "settings": {
     "language": "en",
-    "timezone": "UTC"
+    "timezone": "UTC",
+    "ble_mac_address": "FF:FF:40:00:10:26"
   }
 }
 

@@ -20,6 +20,7 @@ idf_component_register(
                               "./Page_Speed/Page_Speed.c"
                               "./Page_Acceleration/Page_Acceleration.c"
                               "./Page_Weather/Page_Weather.c"
+                              "./Page_Status/Page_Status.c"
                               "./UI_Navigation/UI_Navigation.c"
 
                          INCLUDE_DIRS 
@@ -42,6 +43,7 @@ idf_component_register(
                               "./Page_Speed"
                               "./Page_Acceleration"
                               "./Page_Weather"
+                              "./Page_Status"
                               "./UI_Navigation"
                               "."
                        )

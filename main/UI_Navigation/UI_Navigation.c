@@ -10,6 +10,7 @@
 #include "Page_Speed.h"
 #include "Page_Acceleration.h"
 #include "Page_Weather.h"
+#include "Page_Status.h"
 #include "esp_log.h"
 
 #define NAV_STATE_FILE_PATH "/ui_nav_state.bin"
@@ -29,10 +30,17 @@ typedef struct {
     uint8_t page_index;
     uint8_t subpage_index;
     uint8_t reserved[2];
-} ux_nav_persisted_state_t;
+} ux_nav_persisted_legacy_t;
+
+typedef struct {
+    uint32_t magic;
+    uint8_t page_index;
+    uint8_t last_subpage[UX_PAGE_COUNT];
+} ux_nav_persisted_state_v2_t;
 
 static const char *TAG = "UI_NAV";
-static const uint32_t NAV_STATE_MAGIC = 0x554E4156; /* UNAV */
+static const uint32_t NAV_STATE_MAGIC_LEGACY = 0x554E4156; /* UNAV */
+static const uint32_t NAV_STATE_MAGIC_V2 = 0x554E5632; /* UNV2 */
 
 /* Human-editable page order: adjust this table to reorder or insert pages. */
 static const ux_page_descriptor_t s_pages[] = {
@@ -41,11 +49,13 @@ static const ux_page_descriptor_t s_pages[] = {
     { UX_PAGE_SPEED, "Speed", page_speed_render, page_speed_get_subpage_count },
     { UX_PAGE_ACCELERATION, "Acceleration", page_acceleration_render, page_acceleration_get_subpage_count },
     { UX_PAGE_WEATHER, "Weather", page_weather_render, page_weather_get_subpage_count },
+    { UX_PAGE_STATUS, "Status", page_status_render, page_status_get_subpage_count },
 };
 
 static QueueHandle_t s_event_queue;
 static uint8_t s_current_page_index;
 static uint8_t s_current_subpage_index;
+static uint8_t s_last_subpage[UX_PAGE_COUNT];
 static bool s_initialized;
 
 static const char *nav_event_to_string(bt_remote_event_t event)
@@ -83,50 +93,81 @@ static void nav_log_state(const char *reason)
              (unsigned)total_subpages);
 }
 
+static uint8_t nav_max_subpages_for(uint8_t page_index)
+{
+    uint8_t n = s_pages[page_index].subpage_count();
+    return (n == 0U) ? 1U : n;
+}
+
+static uint8_t nav_clamp_subpage(uint8_t page_index, uint8_t candidate)
+{
+    uint8_t max_sp = nav_max_subpages_for(page_index);
+    if (candidate >= max_sp) {
+        return 0U;
+    }
+    return candidate;
+}
+
+static void nav_clamp_all_last_subpages(void)
+{
+    for (uint8_t i = 0; i < (uint8_t)UX_PAGE_COUNT; i++) {
+        s_last_subpage[i] = nav_clamp_subpage(i, s_last_subpage[i]);
+    }
+}
+
+static void nav_reset_defaults(void)
+{
+    (void)memset(s_last_subpage, 0, sizeof(s_last_subpage));
+    s_current_page_index = 0;
+    s_current_subpage_index = 0;
+}
+
 static esp_err_t nav_save_state(void)
 {
-    ux_nav_persisted_state_t state = {
-        .magic = NAV_STATE_MAGIC,
+    ux_nav_persisted_state_v2_t state = {
+        .magic = NAV_STATE_MAGIC_V2,
         .page_index = s_current_page_index,
-        .subpage_index = s_current_subpage_index,
-        .reserved = {0, 0}
     };
+
+    for (uint8_t i = 0; i < (uint8_t)UX_PAGE_COUNT; i++) {
+        state.last_subpage[i] = s_last_subpage[i];
+    }
 
     return storage_write_file(NAV_STATE_FILE_PATH, &state, sizeof(state));
 }
 
 static void nav_restore_or_default(void)
 {
-    ux_nav_persisted_state_t state = {0};
+    ux_nav_persisted_state_v2_t v2 = {0};
+    ux_nav_persisted_legacy_t leg = {0};
     size_t bytes_read = 0;
 
-    s_current_page_index = 0;
-    s_current_subpage_index = 0;
+    nav_reset_defaults();
 
     if (!storage_file_exists(NAV_STATE_FILE_PATH)) {
         return;
     }
 
-    if (storage_read_file(NAV_STATE_FILE_PATH, &state, sizeof(state), &bytes_read) != ESP_OK || bytes_read != sizeof(state)) {
-        ESP_LOGW(TAG, "Invalid nav state file, using defaults");
+    if (storage_read_file(NAV_STATE_FILE_PATH, &v2, sizeof(v2), &bytes_read) == ESP_OK &&
+        bytes_read == sizeof(v2) && v2.magic == NAV_STATE_MAGIC_V2 &&
+        v2.page_index < (uint8_t)UX_PAGE_COUNT) {
+        s_current_page_index = v2.page_index;
+        (void)memcpy(s_last_subpage, v2.last_subpage, sizeof(s_last_subpage));
+        nav_clamp_all_last_subpages();
+        s_current_subpage_index = s_last_subpage[s_current_page_index];
         return;
     }
 
-    if (state.magic != NAV_STATE_MAGIC || state.page_index >= (uint8_t)UX_PAGE_COUNT) {
-        ESP_LOGW(TAG, "Nav state content invalid, using defaults");
+    if (storage_read_file(NAV_STATE_FILE_PATH, &leg, sizeof(leg), &bytes_read) == ESP_OK &&
+        bytes_read == sizeof(leg) && leg.magic == NAV_STATE_MAGIC_LEGACY &&
+        leg.page_index < (uint8_t)UX_PAGE_COUNT) {
+        s_current_page_index = leg.page_index;
+        s_current_subpage_index = nav_clamp_subpage(s_current_page_index, leg.subpage_index);
+        s_last_subpage[s_current_page_index] = s_current_subpage_index;
         return;
     }
 
-    s_current_page_index = state.page_index;
-    s_current_subpage_index = state.subpage_index;
-
-    uint8_t max_subpages = s_pages[s_current_page_index].subpage_count();
-    if (max_subpages == 0) {
-        max_subpages = 1;
-    }
-    if (s_current_subpage_index >= max_subpages) {
-        s_current_subpage_index = 0;
-    }
+    ESP_LOGW(TAG, "Invalid nav state file, using defaults");
 }
 
 static esp_err_t nav_render_current_page(void)
@@ -142,20 +183,32 @@ static esp_err_t nav_render_current_page(void)
 
 static void nav_next_page(void)
 {
+    s_last_subpage[s_current_page_index] = s_current_subpage_index;
+
     s_current_page_index = (uint8_t)((s_current_page_index + 1U) % (uint8_t)UX_PAGE_COUNT);
-    s_current_subpage_index = 0;
+
+    s_current_subpage_index = nav_clamp_subpage(s_current_page_index,
+                                                s_last_subpage[s_current_page_index]);
+    s_last_subpage[s_current_page_index] = s_current_subpage_index;
+
     (void)nav_render_current_page();
     (void)nav_save_state();
 }
 
 static void nav_prev_page(void)
 {
+    s_last_subpage[s_current_page_index] = s_current_subpage_index;
+
     if (s_current_page_index == 0U) {
         s_current_page_index = (uint8_t)UX_PAGE_COUNT - 1U;
     } else {
         s_current_page_index--;
     }
-    s_current_subpage_index = 0;
+
+    s_current_subpage_index = nav_clamp_subpage(s_current_page_index,
+                                                s_last_subpage[s_current_page_index]);
+    s_last_subpage[s_current_page_index] = s_current_subpage_index;
+
     (void)nav_render_current_page();
     (void)nav_save_state();
 }
@@ -167,6 +220,7 @@ static void nav_subpage_up(void)
         return;
     }
     s_current_subpage_index--;
+    s_last_subpage[s_current_page_index] = s_current_subpage_index;
     (void)nav_render_current_page();
     (void)nav_save_state();
 }
@@ -179,6 +233,7 @@ static void nav_subpage_down(void)
         return;
     }
     s_current_subpage_index++;
+    s_last_subpage[s_current_page_index] = s_current_subpage_index;
     (void)nav_render_current_page();
     (void)nav_save_state();
 }
@@ -214,6 +269,14 @@ esp_err_t ux_navigation_show_restored_page(void)
         (void)nav_save_state();
     }
     return ret;
+}
+
+ux_page_id_t ux_navigation_get_active_page(void)
+{
+    if (!s_initialized || s_current_page_index >= (uint8_t)UX_PAGE_COUNT) {
+        return UX_PAGE_BOOT_LOGO;
+    }
+    return s_pages[s_current_page_index].page_id;
 }
 
 void ux_navigation_queue_remote_event(bt_remote_event_t event)

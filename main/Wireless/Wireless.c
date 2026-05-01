@@ -1,6 +1,7 @@
 #include "Wireless.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "esp_bt_defs.h"
 #include "esp_gatt_common_api.h"
@@ -18,8 +19,12 @@ bool BLE_Scan_Finish = 0;
 #define REMOTE_APP_ID 0
 #define HID_SERVICE_UUID 0x1812
 #define HID_REPORT_CHAR_UUID 0x2A4D
+#define BAT_SERVICE_UUID 0x180F
+#define BAT_LEVEL_CHAR_UUID 0x2A19
 #define CCCD_UUID 0x2902
 #define MAX_BONDED_DEVICES 8
+
+#define REMOTE_BAT_PCT_UNKNOWN 255u
 
 static esp_gatt_if_t s_gattc_if = ESP_GATT_IF_NONE;
 static bool s_is_connecting = false;
@@ -31,8 +36,20 @@ static uint16_t s_conn_id = 0;
 static uint16_t s_hid_service_start = ESP_GATT_ILLEGAL_HANDLE;
 static uint16_t s_hid_service_end = ESP_GATT_ILLEGAL_HANDLE;
 static uint16_t s_hid_report_char_handle = ESP_GATT_ILLEGAL_HANDLE;
+static uint16_t s_bat_service_start = ESP_GATT_ILLEGAL_HANDLE;
+static uint16_t s_bat_service_end = ESP_GATT_ILLEGAL_HANDLE;
+static uint16_t s_bat_level_char_handle = ESP_GATT_ILLEGAL_HANDLE;
+static uint8_t s_remote_battery_percent = REMOTE_BAT_PCT_UNKNOWN;
+static char s_remote_display_name[64];
 static esp_bd_addr_t s_bonded_bda[MAX_BONDED_DEVICES];
 static uint16_t s_bonded_count = 0;
+
+static void store_battery_level_byte(uint8_t raw)
+{
+    if (raw <= 100u) {
+        s_remote_battery_percent = raw;
+    }
+}
 
 static esp_ble_scan_params_t ble_scan_params = {
     .scan_type = BLE_SCAN_TYPE_ACTIVE,
@@ -51,6 +68,11 @@ static bool is_bonded_device(const esp_bd_addr_t bda);
 static void refresh_bonded_device_list(void);
 static bt_remote_event_t usage_to_event(uint16_t usage);
 static bool equals_ignore_case_ascii(const char *a, const char *b, size_t len);
+static void stash_remote_adv_display_name(const esp_ble_gap_cb_param_t *gap_param);
+static void write_cccd_enable_notify(esp_gatt_if_t gattc_if, uint16_t char_handle,
+                                     uint16_t svc_start, uint16_t svc_end);
+static void try_discover_battery_and_read(esp_gatt_if_t gattc_if);
+static void bt_reset_remote_gadget_state_after_disconnect(void);
 
 void Wireless_Init(void)
 {
@@ -198,6 +220,110 @@ void Wireless_RegisterRemoteEventHandler(bt_remote_event_handler_t handler)
     s_remote_event_handler = handler;
 }
 
+static void write_cccd_enable_notify(esp_gatt_if_t gattc_if, uint16_t char_handle,
+                                     uint16_t svc_start, uint16_t svc_end)
+{
+    uint16_t count = 0;
+    esp_bt_uuid_t cccd_uuid = {
+        .len = ESP_UUID_LEN_16,
+        .uuid = {.uuid16 = CCCD_UUID}
+    };
+
+    esp_gatt_status_t status = esp_ble_gattc_get_attr_count(
+        gattc_if,
+        s_conn_id,
+        ESP_GATT_DB_DESCRIPTOR,
+        svc_start,
+        svc_end,
+        char_handle,
+        &count);
+    if (status != ESP_GATT_OK || count == 0) {
+        ESP_LOGE(GATTC_TAG, "CCCD count failed char=0x%04x", char_handle);
+        return;
+    }
+
+    esp_gattc_descr_elem_t *descr = (esp_gattc_descr_elem_t *)calloc(count, sizeof(esp_gattc_descr_elem_t));
+    if (descr == NULL) {
+        ESP_LOGE(GATTC_TAG, "No memory for descriptors");
+        return;
+    }
+
+    status = esp_ble_gattc_get_descr_by_char_handle(
+        gattc_if,
+        s_conn_id,
+        char_handle,
+        cccd_uuid,
+        descr,
+        &count);
+    if (status == ESP_GATT_OK && count > 0) {
+        uint16_t notify_en = 1;
+        esp_ble_gattc_write_char_descr(
+            gattc_if,
+            s_conn_id,
+            descr[0].handle,
+            sizeof(notify_en),
+            (uint8_t *)&notify_en,
+            ESP_GATT_WRITE_TYPE_RSP,
+            ESP_GATT_AUTH_REQ_NONE);
+        ESP_LOGI(GATTC_TAG, "Notify CCCD enabled (char handle 0x%04x)", char_handle);
+    } else {
+        ESP_LOGE(GATTC_TAG, "CCCD descr not found (char handle 0x%04x)", char_handle);
+    }
+    free(descr);
+}
+
+static void try_discover_battery_and_read(esp_gatt_if_t gattc_if)
+{
+    if (s_bat_service_start == ESP_GATT_ILLEGAL_HANDLE) {
+        return;
+    }
+
+    esp_bt_uuid_t uuid = {.len = ESP_UUID_LEN_16, .uuid = {.uuid16 = BAT_LEVEL_CHAR_UUID}};
+    uint16_t count = 0;
+    esp_gatt_status_t status = esp_ble_gattc_get_attr_count(
+        gattc_if,
+        s_conn_id,
+        ESP_GATT_DB_CHARACTERISTIC,
+        s_bat_service_start,
+        s_bat_service_end,
+        ESP_GATT_ILLEGAL_HANDLE,
+        &count);
+    if (status != ESP_GATT_OK || count == 0) {
+        return;
+    }
+
+    esp_gattc_char_elem_t *chars = (esp_gattc_char_elem_t *)calloc(count, sizeof(esp_gattc_char_elem_t));
+    if (chars == NULL) {
+        return;
+    }
+
+    status = esp_ble_gattc_get_char_by_uuid(
+        gattc_if,
+        s_conn_id,
+        s_bat_service_start,
+        s_bat_service_end,
+        uuid,
+        chars,
+        &count);
+    if (status != ESP_GATT_OK || count == 0) {
+        free(chars);
+        return;
+    }
+
+    s_bat_level_char_handle = chars[0].char_handle;
+    free(chars);
+
+    ESP_LOGI(GATTC_TAG, "Battery level char handle=0x%04x", s_bat_level_char_handle);
+    esp_err_t err = esp_ble_gattc_read_char(gattc_if, s_conn_id, s_bat_level_char_handle, ESP_GATT_AUTH_REQ_NONE);
+    if (err != ESP_OK) {
+        ESP_LOGW(GATTC_TAG, "Battery read failed: %s", esp_err_to_name(err));
+    }
+    err = esp_ble_gattc_register_for_notify(gattc_if, s_remote_bda, s_bat_level_char_handle);
+    if (err != ESP_OK) {
+        ESP_LOGW(GATTC_TAG, "Battery notify register failed: %s", esp_err_to_name(err));
+    }
+}
+
 static bool is_bonded_device(const esp_bd_addr_t bda)
 {
     for (uint16_t i = 0; i < s_bonded_count; i++) {
@@ -343,6 +469,24 @@ static bool match_target_remote_name(const esp_ble_gap_cb_param_t *scan_rst)
     return equals_ignore_case_ascii(tmp, REMOTE_NAME, want_len);
 }
 
+static void stash_remote_adv_display_name(const esp_ble_gap_cb_param_t *gap_param)
+{
+    uint8_t name_len = 0;
+    uint8_t *name = esp_ble_resolve_adv_data((uint8_t *)gap_param->scan_rst.ble_adv,
+                                             ESP_BLE_AD_TYPE_NAME_CMPL, &name_len);
+    if (name == NULL || name_len == 0) {
+        name = esp_ble_resolve_adv_data((uint8_t *)gap_param->scan_rst.ble_adv,
+                                        ESP_BLE_AD_TYPE_NAME_SHORT, &name_len);
+    }
+    if (name == NULL || name_len == 0) {
+        s_remote_display_name[0] = '\0';
+        return;
+    }
+    size_t cplen = name_len >= sizeof(s_remote_display_name) ? sizeof(s_remote_display_name) - 1U : (size_t)name_len;
+    memcpy(s_remote_display_name, name, cplen);
+    s_remote_display_name[cplen] = '\0';
+}
+
 static bool equals_ignore_case_ascii(const char *a, const char *b, size_t len)
 {
     for (size_t i = 0; i < len; i++) {
@@ -387,8 +531,10 @@ static void gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
                     s_remote_addr_type = param->scan_rst.ble_addr_type;
                     s_is_connecting = true;
                     if (name_match) {
+                        stash_remote_adv_display_name(param);
                         ESP_LOGI(GATTC_TAG, "Found %s by name, connecting...", REMOTE_NAME);
                     } else {
+                        s_remote_display_name[0] = '\0';
                         ESP_LOGI(GATTC_TAG, "Found bonded remote by address, connecting...");
                     }
                     esp_ble_gap_stop_scanning();
@@ -436,6 +582,10 @@ static void gattc_cb(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble
             s_hid_service_start = ESP_GATT_ILLEGAL_HANDLE;
             s_hid_service_end = ESP_GATT_ILLEGAL_HANDLE;
             s_hid_report_char_handle = ESP_GATT_ILLEGAL_HANDLE;
+            s_bat_service_start = ESP_GATT_ILLEGAL_HANDLE;
+            s_bat_service_end = ESP_GATT_ILLEGAL_HANDLE;
+            s_bat_level_char_handle = ESP_GATT_ILLEGAL_HANDLE;
+            s_remote_battery_percent = REMOTE_BAT_PCT_UNKNOWN;
             ESP_LOGI(GATTC_TAG, "Connected to %s", REMOTE_NAME);
             esp_ble_gattc_search_service(gattc_if, s_conn_id, NULL);
             break;
@@ -444,6 +594,10 @@ static void gattc_cb(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble
                 param->search_res.srvc_id.uuid.uuid.uuid16 == HID_SERVICE_UUID) {
                 s_hid_service_start = param->search_res.start_handle;
                 s_hid_service_end = param->search_res.end_handle;
+            } else if (param->search_res.srvc_id.uuid.len == ESP_UUID_LEN_16 &&
+                       param->search_res.srvc_id.uuid.uuid.uuid16 == BAT_SERVICE_UUID) {
+                s_bat_service_start = param->search_res.start_handle;
+                s_bat_service_end = param->search_res.end_handle;
             }
             break;
         case ESP_GATTC_SEARCH_CMPL_EVT: {
@@ -491,6 +645,7 @@ static void gattc_cb(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble
                 s_hid_report_char_handle = chars[0].char_handle;
                 ESP_LOGI(GATTC_TAG, "HID report char handle=0x%04x", s_hid_report_char_handle);
                 esp_ble_gattc_register_for_notify(gattc_if, s_remote_bda, s_hid_report_char_handle);
+                try_discover_battery_and_read(gattc_if);
             } else {
                 ESP_LOGW(GATTC_TAG, "HID report characteristic not found");
                 esp_ble_gattc_close(gattc_if, s_conn_id);
@@ -498,61 +653,32 @@ static void gattc_cb(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble
             free(chars);
             break;
         }
-        case ESP_GATTC_REG_FOR_NOTIFY_EVT: {
+        case ESP_GATTC_REG_FOR_NOTIFY_EVT:
             if (param->reg_for_notify.status != ESP_GATT_OK) {
                 ESP_LOGE(GATTC_TAG, "register notify failed: 0x%x", param->reg_for_notify.status);
                 break;
             }
-            uint16_t count = 0;
-            esp_bt_uuid_t cccd_uuid = {
-                .len = ESP_UUID_LEN_16,
-                .uuid = {.uuid16 = CCCD_UUID}
-            };
-
-            esp_gatt_status_t status = esp_ble_gattc_get_attr_count(
-                gattc_if,
-                s_conn_id,
-                ESP_GATT_DB_DESCRIPTOR,
-                s_hid_service_start,
-                s_hid_service_end,
-                s_hid_report_char_handle,
-                &count);
-            if (status != ESP_GATT_OK || count == 0) {
-                ESP_LOGE(GATTC_TAG, "CCCD count failed");
-                break;
+            if (param->reg_for_notify.handle == s_hid_report_char_handle) {
+                write_cccd_enable_notify(gattc_if, s_hid_report_char_handle, s_hid_service_start,
+                                        s_hid_service_end);
+            } else if (param->reg_for_notify.handle == s_bat_level_char_handle) {
+                write_cccd_enable_notify(gattc_if, s_bat_level_char_handle, s_bat_service_start,
+                                        s_bat_service_end);
             }
-
-            esp_gattc_descr_elem_t *descr = (esp_gattc_descr_elem_t *)calloc(count, sizeof(esp_gattc_descr_elem_t));
-            if (descr == NULL) {
-                ESP_LOGE(GATTC_TAG, "No memory for descriptors");
-                break;
-            }
-            status = esp_ble_gattc_get_descr_by_char_handle(
-                gattc_if,
-                s_conn_id,
-                s_hid_report_char_handle,
-                cccd_uuid,
-                descr,
-                &count);
-            if (status == ESP_GATT_OK && count > 0) {
-                uint16_t notify_en = 1;
-                esp_ble_gattc_write_char_descr(
-                    gattc_if,
-                    s_conn_id,
-                    descr[0].handle,
-                    sizeof(notify_en),
-                    (uint8_t *)&notify_en,
-                    ESP_GATT_WRITE_TYPE_RSP,
-                    ESP_GATT_AUTH_REQ_NONE);
-                ESP_LOGI(GATTC_TAG, "Notification enabled");
-            } else {
-                ESP_LOGE(GATTC_TAG, "CCCD descriptor not found");
-            }
-            free(descr);
             break;
-        }
+        case ESP_GATTC_READ_CHAR_EVT:
+            if (param->read.status == ESP_GATT_OK && param->read.handle == s_bat_level_char_handle &&
+                param->read.value_len > 0 && param->read.value != NULL) {
+                store_battery_level_byte(param->read.value[0]);
+            }
+            break;
         case ESP_GATTC_NOTIFY_EVT:
-            Wireless_DecodeHidReport(param->notify.value, param->notify.value_len);
+            if (param->notify.handle == s_hid_report_char_handle) {
+                Wireless_DecodeHidReport(param->notify.value, param->notify.value_len);
+            } else if (param->notify.handle == s_bat_level_char_handle && param->notify.value_len > 0 &&
+                       param->notify.value != NULL) {
+                store_battery_level_byte(param->notify.value[0]);
+            }
             break;
         case ESP_GATTC_DISCONNECT_EVT:
             s_is_connected = false;
@@ -560,10 +686,73 @@ static void gattc_cb(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble
             s_hid_service_start = ESP_GATT_ILLEGAL_HANDLE;
             s_hid_service_end = ESP_GATT_ILLEGAL_HANDLE;
             s_hid_report_char_handle = ESP_GATT_ILLEGAL_HANDLE;
+            s_bat_service_start = ESP_GATT_ILLEGAL_HANDLE;
+            s_bat_service_end = ESP_GATT_ILLEGAL_HANDLE;
+            s_bat_level_char_handle = ESP_GATT_ILLEGAL_HANDLE;
+            s_remote_battery_percent = REMOTE_BAT_PCT_UNKNOWN;
+            memset(s_remote_display_name, 0, sizeof(s_remote_display_name));
+            memset(s_remote_bda, 0, sizeof(s_remote_bda));
             ESP_LOGW(GATTC_TAG, "Remote disconnected, restarting scan");
             start_ble_scan();
             break;
         default:
             break;
     }
+}
+
+bt_remote_conn_state_t Wireless_GetRemoteConnectionState(void)
+{
+    if (s_is_connected) {
+        return BT_REMOTE_CONN_CONNECTED;
+    }
+    if (s_is_connecting) {
+        return BT_REMOTE_CONN_CONNECTING;
+    }
+    return BT_REMOTE_CONN_DISCONNECTED;
+}
+
+void Wireless_GetRemoteDisplayName(char *out, size_t out_len)
+{
+    if (out == NULL || out_len == 0U) {
+        return;
+    }
+    out[0] = '\0';
+    if (!s_is_connected && !s_is_connecting) {
+        return;
+    }
+    if (s_remote_display_name[0] != '\0') {
+        strncpy(out, s_remote_display_name, out_len - 1U);
+        out[out_len - 1U] = '\0';
+    } else {
+        strncpy(out, REMOTE_NAME, out_len - 1U);
+        out[out_len - 1U] = '\0';
+    }
+}
+
+bool Wireless_FormatRemoteMac(char *out, size_t out_len)
+{
+    if (out == NULL || out_len < 4U) {
+        return false;
+    }
+    if (!s_is_connected && !s_is_connecting) {
+        strncpy(out, "---", out_len - 1U);
+        out[out_len - 1U] = '\0';
+        return false;
+    }
+    (void)snprintf(out, out_len, "%02X:%02X:%02X:%02X:%02X:%02X",
+                   s_remote_bda[0], s_remote_bda[1], s_remote_bda[2], s_remote_bda[3], s_remote_bda[4],
+                   s_remote_bda[5]);
+    return true;
+}
+
+bool Wireless_GetRemoteBatteryPercent(uint8_t *out_percent)
+{
+    if (out_percent == NULL || !s_is_connected) {
+        return false;
+    }
+    if (s_remote_battery_percent > 100u) {
+        return false;
+    }
+    *out_percent = s_remote_battery_percent;
+    return true;
 }

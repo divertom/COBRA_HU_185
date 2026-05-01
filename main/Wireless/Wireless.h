@@ -1,5 +1,8 @@
 #pragma once
 
+#include <stdbool.h>
+#include <stddef.h>
+
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "esp_wifi.h"
@@ -25,6 +28,11 @@ typedef enum {
 
 typedef void (*bt_remote_event_handler_t)(bt_remote_event_t event);
 
+typedef enum {
+    BT_REMOTE_CONN_DISCONNECTED = 0,
+    BT_REMOTE_CONN_CONNECTING,
+    BT_REMOTE_CONN_CONNECTED
+} bt_remote_conn_state_t;
 
 extern uint16_t BLE_NUM;
 extern uint16_t WIFI_NUM;
@@ -38,3 +46,11 @@ uint16_t BLE_Scan(void);
 void Wireless_LogRemoteEvent(uint16_t usage, bt_remote_event_t event);
 void Wireless_DecodeHidReport(const uint8_t *report_data, uint16_t report_len);
 void Wireless_RegisterRemoteEventHandler(bt_remote_event_handler_t handler);
+
+/** Smart Remote BLE link (GATT central in Wireless.c); safe to call from UI thread for display-only. */
+bt_remote_conn_state_t Wireless_GetRemoteConnectionState(void);
+void Wireless_GetRemoteDisplayName(char *out, size_t out_len);
+/** Formats BLE address when connecting/connected or target chosen; sets "---" otherwise. Returns true once a BLE address has been copied to out. */
+bool Wireless_FormatRemoteMac(char *out, size_t out_len);
+/** Percent 0–100; returns false when unknown / no BLE Battery Service level. */
+bool Wireless_GetRemoteBatteryPercent(uint8_t *out_percent);
