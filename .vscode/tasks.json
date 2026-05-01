@@ -32,6 +32,39 @@
       "options": { "cwd": "${workspaceFolder}" },
       "group": "build",
       "problemMatcher": { "base": "$gcc", "fileLocation": ["relative", "${workspaceFolder}"] }
+    },
+    {
+      "label": "ESP-IDF: Flash (deploy)",
+      "type": "process",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/idf-cmd.ps1",
+        "flash"
+      ],
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": "none",
+      "problemMatcher": { "base": "$gcc", "fileLocation": ["relative", "${workspaceFolder}"] }
+    },
+    {
+      "label": "ESP-IDF: Flash and monitor",
+      "type": "process",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/idf-cmd.ps1",
+        "flash",
+        "monitor"
+      ],
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": "none",
+      "problemMatcher": { "base": "$gcc", "fileLocation": ["relative", "${workspaceFolder}"] }
     }
   ]
 }

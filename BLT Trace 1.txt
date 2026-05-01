@@ -1,0 +1,527 @@
+
+--- Terminal on COM5 | 115200 8-N-1
+--- Available filters and text transformations: colorize, debug, default, direct, esp32_exception_decoder, hexlify, log2file, nocontrol, printable, send_on_enter, time
+--- More details at https://bit.ly/pio-monitor-filters
+--- Quit: Ctrl+C | Menu: Ctrl+T | Help: Ctrl+T followed by Ctrl+H
+[   210][E][esp32-hal-spi.c:227] spiAttachMISO(): SPI Does not h[BLE_LOG][5329] DEVICE_DISCOVERED: Device: , MAC: 4d:23:fa:14:c0:00, RSSI: -97 dBm
+[BLE_LOG][5935] === BLE INITIALIZATION COMPLETE ===
+[BLE_LOG][5940] SCAN_START: Starting BLE scan for SmartRemote
+[BLE_LOG][5941][CONFIG] Scan_Duration_sec = 2
+Scanning for SmartRemote...
+[BLE_LOG][5970] DEVICE_DISCOVERED: Device: , MAC: 58:cc:c8:8b:e0:9d, RSSI: -87 dBm
+[BLE_LOG][6003] DEVICE_DISCOVERED: Device: , MAC: fc:b4:67:4d:95:e6, RSSI: -94 dBm
+[BLE_LOG][6004] DEVICE_DISCOVERED: Device: , MAC: a0:d0:5b:94:ed:7e, RSSI: -65 dBm
+[BLE_LOG][6055] DEVICE_DISCOVERED: Device: , MAC: 6e:ec:0e:53:25:a6, RSSI: -88 dBm
+[BLE_LOG][6065] DEVICE_DISCOVERED: Device: , MAC: 5c:c1:d7:da:24:03, RSSI: -60 dBm
+[BLE_LOG][6093] DEVICE_DISCOVERED: Device: ResMed 751250, MAC: e8:e0:7e:98:c3:01, RSSI: -94 dBm
+[BLE_LOG][6170] DEVICE_DISCOVERED: Device: , MAC: 73:5b:b9:f9:e8:e3, RSSI: -85 dBm
+[BLE_LOG][7313] DEVICE_DISCOVERED: Device: SmartRemote, MAC: ff:ff:40:00:10:26, RSSI: -54 dBm
+[BLE_LOG][7313] TARGET_DEVICE_FOUND: Device_Name_Match
+[BLE_LOG][7314][CONFIG] Found_Device_Name = SmartRemote
+[BLE_LOG][7315][CONFIG] Found_Device_MAC = ff:ff:40:00:10:26
+[BLE_LOG][7316][CONFIG] Found_Device_RSSI_dBm = -54
+[BLE_LOG][7318][CONFIG] Advertised_Service_UUID = 00001812-0000-1000-8000-00805f9b34fb
+Found target device: SmartRemote
+Address: ff:ff:40:00:10:26
+[BLE_LOG][7319] PAIRING_INITIATED: Attempting to connect to target device
+[BLE_LOG][7945][CONFIG] Devices_Found_In_Scan = 8
+[BLE_LOG][7946] SCAN_COMPLETE: BLE scan completed
+[BLE_LOG][7960] CONNECTION_ATTEMPT: doConnect flag set, attempting connection
+[BLE_LOG][7962] CONNECTION_ATTEMPT_START: Attempting to connect to device
+[BLE_LOG][7962][CONFIG] Target_MAC_Address = ff:ff:40:00:10:26
+Connecting to ff:ff:40:00:10:26...
+[BLE_LOG][7963] Creating BLE Client
+[BLE_LOG][7965] Calling pClient->connect()
+[BLE_LOG][8279] CONNECTION_ESTABLISHED: Successfully connected to SmartRemote
+[BLE_LOG][8279][CONFIG] Connected_Device_Name = SmartRemote
+[BLE_LOG][8280][CONFIG] Connected_Device_MAC = ff:ff:40:00:10:26
+Connected to SmartRemote!
+[BLE_LOG][8281] CONNECTION_SUCCESS: BLE client connected, starting service discovery
+[BLE_LOG][8281] SERVICE_DISCOVERY_START: Discovering available services
+[BLE_LOG][10565][CONFIG] Total_Services_Discovered = 5
+[BLE_LOG][10566] SERVICE_FOUND: Service[0] UUID: 00001800-0000-1000-8000-00805f9b34fb
+[BLE_LOG][10567] SERVICE_FOUND: Service[1] UUID: 00001801-0000-1000-8000-00805f9b34fb
+[BLE_LOG][10568] SERVICE_FOUND: Service[2] UUID: 0000180a-0000-1000-8000-00805f9b34fb
+[BLE_LOG][10569] SERVICE_FOUND: Service[3] UUID: 0000180f-0000-1000-8000-00805f9b34fb
+[BLE_LOG][10570] SERVICE_FOUND: Service[4] UUID: 00001812-0000-1000-8000-00805f9b34fb
+[BLE_LOG][10571][CONFIG] HID_Service_UUID = 00001812-0000-1000-8000-00805f9b34fb
+[BLE_LOG][10572][CONFIG] Serial_Service_UUID = 0000ffe0-0000-1000-8000-00805f9b34fb
+[BLE_LOG][10572] SERVICE_LOOKUP: Attempting to get HID service
+[BLE_LOG][10573] SERVICE_FOUND: HID service found, discovering characteristics
+[ 10575][E][BLERemoteCharacteristic.cpp:289] retrieveDescriptors(): esp_ble_gattc_get_all_descr: Unknown
+[ 10586][E][BLERemoteCharacteristic.cpp:289] retrieveDescriptors(): esp_ble_gattc_get_all_descr: Unknown
+[ 10595][E][BLERemoteCharacteristic.cpp:289] retrieveDescriptors(): esp_ble_gattc_get_all_descr: Unknown
+[ 10605][E][BLERemoteCharacteristic.cpp:289] retrieveDescriptors(): esp_ble_gattc_get_all_descr: Unknown
+[BLE_LOG][10614][CONFIG] HID_Characteristics_Count = 9
+[BLE_LOG][10615][CONFIG] Report_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][10616] CHARACTERISTIC_FOUND: Handle: 0x11, UUID: 00002a4e-0000-1000-8000-00805f9b34fb, Notify: No, Read: Yes, Write: No
+[BLE_LOG][10617] CHARACTERISTIC_FOUND: Handle: 0x13, UUID: 00002a4d-0000-1000-8000-00805f9b34fb, Notify: Yes, Read: Yes, Write: No
+[BLE_LOG][10618] CHARACTERISTIC_FOUND: Handle: 0x17, UUID: 00002a4d-0000-1000-8000-00805f9b34fb, Notify: Yes, Read: Yes, Write: No
+[BLE_LOG][10619] CHARACTERISTIC_FOUND: Handle: 0x1b, UUID: 00002a4d-0000-1000-8000-00805f9b34fb, Notify: Yes, Read: Yes, Write: No
+[BLE_LOG][10620] CHARACTERISTIC_FOUND: Handle: 0x1f, UUID: 00002a4d-0000-1000-8000-00805f9b34fb, Notify: Yes, Read: Yes, Write: No
+[BLE_LOG][10621] CHARACTERISTIC_FOUND: Handle: 0x23, UUID: 00002a4d-0000-1000-8000-00805f9b34fb, Notify: No, Read: Yes, Write: Yes
+[BLE_LOG][10622] CHARACTERISTIC_FOUND: Handle: 0x26, UUID: 00002a4b-0000-1000-8000-00805f9b34fb, Notify: No, Read: Yes, Write: No
+[BLE_LOG][10623] CHARACTERISTIC_FOUND: Handle: 0x28, UUID: 00002a4a-0000-1000-8000-00805f9b34fb, Notify: No, Read: Yes, Write: No
+[BLE_LOG][10624] CHARACTERISTIC_FOUND: Handle: 0x2a, UUID: 00002a4c-0000-1000-8000-00805f9b34fb, Notify: No, Read: No, Write: No
+[BLE_LOG][10624][CONFIG] Notify_Read_Characteristics_Count = 8
+[BLE_LOG][10626] REPORT_CHARACTERISTIC_FOUND: Found matching report characteristic
+[BLE_LOG][10626] NOTIFICATION_REGISTRATION: Registering for notifications on report characteristic
+[BLE_LOG][10724] REPORT_CHARACTERISTIC_FOUND: Found matching report characteristic
+[BLE_LOG][10724] NOTIFICATION_REGISTRATION: Registering for notifications on report characteristic
+[BLE_LOG][10884] REPORT_CHARACTERISTIC_FOUND: Found matching report characteristic
+[BLE_LOG][10884] NOTIFICATION_REGISTRATION: Registering for notifications on report characteristic
+[BLE_LOG][10964] REPORT_CHARACTERISTIC_FOUND: Found matching report characteristic
+[BLE_LOG][10964] NOTIFICATION_REGISTRATION: Registering for notifications on report characteristic
+[BLE_LOG][11044] REPORT_CHARACTERISTIC_FOUND: Found matching report characteristic
+[BLE_LOG][11045] POLLING_CONFIGURED: Added characteristic for polling fallback
+[BLE_LOG][11045] CHARACTERISTIC_CONFIGURATION_START: Configuring characteristic for communication
+[BLE_LOG][11046][CONFIG] Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][11047][CONFIG] Can_Notify = true
+[BLE_LOG][11048][CONFIG] Can_Read = true
+[BLE_LOG][11049][CONFIG] Can_Write = false
+[BLE_LOG][11050] POLLING_MODE_ENABLED: Characteristic supports read, polling enabled
+[BLE_LOG][11051] CCCD_CONFIGURATION: Attempting to enable notifications via CCCD
+[BLE_LOG][11052][CONFIG] CCCD_UUID = 0x2902
+[BLE_LOG][11053][DATA] CCCD_WRITE [Enable_Notifications]: length=2, data=[01 00]
+[BLE_LOG][11123] CCCD_WRITE_SUCCESS: Notifications enabled via CCCD
+[BLE_LOG][11124] HID_CONTROL_POINT_CONFIG: Attempting to wake HID device
+[BLE_LOG][11126][CONFIG] HID_Control_Point_UUID = 00002a4c-0000-1000-8000-00805f9b34fb
+[BLE_LOG][11127] HID_CONTROL_POINT_NOT_AVAILABLE: HID Control Point not found or not writable
+[BLE_LOG][11127] REPORT_REFERENCE_READ: Attempting to read Report Reference descriptor
+[BLE_LOG][11128][CONFIG] Report_Reference_UUID = 0x2908
+[BLE_LOG][11203][CONFIG] Report_ID_From_Descriptor = 4
+[BLE_LOG][11204][DATA] REPORT_REFERENCE_READ [Report_Reference]: length=2, data=[04 01]
+[BLE_LOG][11205] NOTIFICATION_REGISTRATION: Registering notify callback
+[BLE_LOG][11284] CHARACTERISTIC_CONFIGURATION_COMPLETE: Characteristic fully configured, ready for communication
+[BLE_LOG][11284] === PAIRING_COMPLETE ===: BLE pairing and configuration successful
+[BLE_LOG][11285] CONNECTION_SUCCESS: Connection established successfully
+[BLE_LOG][11392] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][11392][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][11603][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][11604] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][11606] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][11606][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][11763][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][11764] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][11776] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][11776][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][11843][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][11844] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][11845] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][11845][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][12004][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][12004] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][12016] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][12016][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][12163][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][12164] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][12166] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][12166][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][12243][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][12244] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][12256] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][12256][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][12323][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][12324] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][12326] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][12326][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][12403][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][12404] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][12416] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][12416][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][12523][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][12524] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][12526] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][12526][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][12603][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][12604] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][12615] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][12615][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][12723][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][12724] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][12726] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][12726][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][12803][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][12804] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][12816] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][12816][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][12883][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][12884] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][12886] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][12886][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][13003][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][13004] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][13016] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][13016][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][13083][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][13084] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][13086] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][13086][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][13203][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][13204] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][13216] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][13216][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][13283][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][13284] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][13286] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][13286][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][13403][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][13404] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][13421] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][13421][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][13523][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][13524] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][13526] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][13526][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][13723][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][13724] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][13736] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][13736][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][13803][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][13804] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][13806] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][13806][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][13923][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][13924] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][13936] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][13936][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][14003][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][14004] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][14006] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][14006][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][14083][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][14084] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][14096] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][14096][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][14163][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][14164] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][14166] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][14166][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][14283][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][14284] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][14296] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][14296][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][14363][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][14364] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][14366] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][14366][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][14443][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][14444] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][14456] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][14456][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][14523][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][14524] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][14526] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][14526][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][14603][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][14604] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][14616] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][14616][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][14723][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][14724] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][14726] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][14726][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][14803][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][14804] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][14816] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][14816][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][14923][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][14924] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][14926] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][14926][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][15083][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][15084] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][15096] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][15096][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][15203][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][15204] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][15206] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][15206][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][15283][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][15284] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][15296] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][15296][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][15403][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][15404] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][15406] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][15406][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][15484][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][15484] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][15501] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][15501][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][15603][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][15604] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][15606] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][15606][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][15843][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][15844] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][15856] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][15856][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][15923][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][15924] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][15926] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][15926][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][15964] NOTIFICATION_RECEIVED: Data received via notification
+[BLE_LOG][15964][CONFIG] Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][15965][CONFIG] Is_Notify = true
+[BLE_LOG][15966][DATA] NOTIFICATION_DATA [Received]: length=2, data=[B5 00]
+[BLE_LOG][15967] BUTTON_PRESSED: BUTTON_RIGHT
+Button pressed: BUTTON_RIGHT
+BT Button callback: BUTTON_RIGHT
+[BLE_LOG][16084] NOTIFICATION_RECEIVED: Data received via notification
+[BLE_LOG][16084][CONFIG] Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][16085][CONFIG] Is_Notify = true
+[BLE_LOG][16086][DATA] NOTIFICATION_DATA [Received]: length=2, data=[00 00]
+[BLE_LOG][16087] DATA_RECEIVED_NO_BUTTON: Data received but no button match
+[BLE_LOG][16123][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][16124] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][16135] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][16135][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][16204][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][16204] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][16206] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][16206][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][16323][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][16324] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][16336] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][16336][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][16443][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][16444] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][16446] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][16446][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][16563][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][16564] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][16576] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][16576][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][16683][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][16684] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][16686] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][16686][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][16763][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][16764] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][16775] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][16775][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][16923][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][16924] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][16926] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][16926][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][17003][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][17004] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][17016] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][17016][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][17083][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][17084] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][17086] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][17086][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][17124] NOTIFICATION_RECEIVED: Data received via notification
+[BLE_LOG][17124][CONFIG] Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][17125][CONFIG] Is_Notify = true
+[BLE_LOG][17126][DATA] NOTIFICATION_DATA [Received]: length=2, data=[B5 00]
+[BLE_LOG][17127] BUTTON_PRESSED: BUTTON_RIGHT
+Button pressed: BUTTON_RIGHT
+BT Button callback: BUTTON_RIGHT
+[BLE_LOG][17309] NOTIFICATION_RECEIVED: Data received via notification
+[BLE_LOG][17310][CONFIG] Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][17311][CONFIG] Is_Notify = true
+[BLE_LOG][17312][DATA] NOTIFICATION_DATA [Received]: length=2, data=[00 00]
+[BLE_LOG][17313] DATA_RECEIVED_NO_BUTTON: Data received but no button match
+[BLE_LOG][17310][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]      
+[BLE_LOG][17315] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][17327] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][17327][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][17443][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][17444] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][17446] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][17446][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][17523][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][17524] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][17541] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][17541][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][17643][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][17644] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][17646] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][17646][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][17723][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][17724] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][17736] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][17736][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][17803][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][17804] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][17806] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][17806][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][17923][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][17924] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][17936] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][17936][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][18043][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][18044] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][18046] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][18046][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][18123][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][18124] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][18136] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][18136][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][18203][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][18204] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][18206] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][18206][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][18283][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][18284] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][18295] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][18295][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][18363][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][18364] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][18366] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][18366][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][18443][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][18444] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][18456] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][18456][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][18523][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][18524] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][18526] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][18526][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][18603][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][18604] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][18616] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][18616][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][18683][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][18684] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][18686] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][18686][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][18724] NOTIFICATION_RECEIVED: Data received via notification
+[BLE_LOG][18724][CONFIG] Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][18725][CONFIG] Is_Notify = true
+[BLE_LOG][18726][DATA] NOTIFICATION_DATA [Received]: length=2, data=[B6 00]
+[BLE_LOG][18727] BUTTON_PRESSED: BUTTON_LEFT
+Button pressed: BUTTON_LEFT
+BT Button callback: BUTTON_LEFT
+[BLE_LOG][18792][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][18792] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][18803] NOTIFICATION_RECEIVED: Data received via notification
+[BLE_LOG][18804][CONFIG] Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][18805][CONFIG] Is_Notify = true
+[BLE_LOG][18806][DATA] NOTIFICATION_DATA [Received]: length=2, data=[00 00]
+[BLE_LOG][18807] DATA_RECEIVED_NO_BUTTON: Data received but no button match
+[BLE_LOG][18804] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][18809][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][18883][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][18884] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][18886] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][18886][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][19003][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][19004] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][19016] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][19016][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][19083][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][19084] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][19086] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][19086][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][19163][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][19164] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][19176] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][19176][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][19363][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][19364] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][19366] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][19366][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][19443][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][19444] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][19456] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][19456][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][19563][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][19564] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][19566] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][19566][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][19683][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][19684] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][19701] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][19701][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][19763][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][19764] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][19766] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][19766][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][20003][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][20004] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][20016] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][20016][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][20083][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][20084] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][20086] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][20086][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][20163][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][20164] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][20176] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][20176][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][20204] NOTIFICATION_RECEIVED: Data received via notification
+[BLE_LOG][20204][CONFIG] Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][20205][CONFIG] Is_Notify = true
+[BLE_LOG][20206][DATA] NOTIFICATION_DATA [Received]: length=2, data=[B5 00]
+[BLE_LOG][20207] BUTTON_PRESSED: BUTTON_RIGHT
+Button pressed: BUTTON_RIGHT
+BT Button callback: BUTTON_RIGHT
+[BLE_LOG][20393] NOTIFICATION_RECEIVED: Data received via notification
+[BLE_LOG][20394][CONFIG] Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][20395][CONFIG] Is_Notify = true
+[BLE_LOG][20396][DATA] NOTIFICATION_DATA [Received]: length=2, data=[00 00]
+[BLE_LOG][20397] DATA_RECEIVED_NO_BUTTON: Data received but no button match
+[BLE_LOG][20393][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][20399] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][20400] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][20401][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][20563][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][20564] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][20576] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][20576][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][20643][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][20644] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][20646] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][20646][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][20883][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][20884] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][20896] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][20896][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][20963][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][20964] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][20966] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][20966][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][21083][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][21084] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][21096] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][21096][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][21203][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][21204] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][21206] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][21206][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][21283][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][21284] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][21296] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][21296][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][21363][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][21364] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][21366] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][21366][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][21483][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][21484] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][21496] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][21496][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][21563][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][21564] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][21566] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][21566][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][21683][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][21684] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][21696] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][21696][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][21763][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][21764] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][21766] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][21766][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][21923][DATA] POLL_READ_PRIMARY_DATA [Primary_Characteristic]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][21924] POLL_PRIMARY_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][21941] POLL_READ_START: Polling characteristic 0
+[BLE_LOG][21941][CONFIG] Poll_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb
+[BLE_LOG][22083][DATA] POLL_READ_DATA [Characteristic_0]: length=9, data=[00 00 00 00 00 00 00 00 00]
+[BLE_LOG][22084] POLL_IDLE_STATE: Received all-zero data (idle state)
+[BLE_LOG][22086] POLL_READ_PRIMARY: Polling primary characteristic
+[BLE_LOG][22086][CONFIG] Primary_Characteristic_UUID = 00002a4d-0000-1000-8000-00805f9b34fb

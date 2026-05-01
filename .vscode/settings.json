@@ -10,7 +10,7 @@
   "files.associations": {
     "sdkconfig*": "kconfig"
   },
-  "idf.currentSetup": "C:/Espressif/frameworks/esp-idf-v5.5.4/",
+  "idf.currentSetup": "C:\\Users\\torst\\esp\\v5.5.1\\esp-idf",
   "idf.portWin": "COM4",
   "idf.flashType": "UART"
 }
