@@ -1,9 +1,12 @@
 #include "Page_Weather.h"
+#include "gauge_bg_lvgl.h"
 #include "lvgl.h"
 #include <stdio.h>
 
 esp_err_t page_weather_render(uint8_t subpage_index, lv_obj_t *root)
 {
+    (void)create_gauge_background(root);
+
     lv_obj_set_style_bg_color(root, lv_color_black(), LV_PART_MAIN);
     lv_obj_set_style_bg_opa(root, LV_OPA_COVER, LV_PART_MAIN);
 

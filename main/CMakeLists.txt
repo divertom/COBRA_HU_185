@@ -1,6 +1,7 @@
 idf_component_register(
                          SRCS 
                               "./main.c" 
+                              "./gauge_bg_lvgl.c"
                               "./EXIO/TCA9554PWR.c"
                               "./LCD_Driver/esp_lcd_st77916/esp_lcd_st77916.c" 
                               "./LCD_Driver/ST77916.c"       

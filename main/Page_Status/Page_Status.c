@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "gauge_bg_lvgl.h"
 #include "UI_Navigation.h"
 #include "Wireless.h"
 #include "lvgl.h"
@@ -104,22 +105,26 @@ esp_err_t page_status_render(uint8_t subpage_index, lv_obj_t *root)
     s_mac_label = NULL;
     s_batt_label = NULL;
 
+    (void)create_gauge_background(root);
+
     lv_obj_set_style_bg_color(root, lv_color_black(), LV_PART_MAIN);
     lv_obj_set_style_bg_opa(root, LV_OPA_COVER, LV_PART_MAIN);
 
+    /* Content constrained to inscribed square inside ring + cardinal ticks (+ margin). */
     lv_obj_t *outer = lv_obj_create(root);
     lv_obj_remove_style_all(outer);
-    lv_obj_set_width(outer, lv_pct(100));
-    lv_obj_set_height(outer, LV_SIZE_CONTENT);
+    lv_obj_set_size(outer, GAUGE_USABLE_SQUARE_SIDE, GAUGE_USABLE_SQUARE_SIDE);
+    lv_obj_align(outer, LV_ALIGN_CENTER, 0, 0);
     lv_obj_set_layout(outer, LV_LAYOUT_FLEX);
     lv_obj_set_flex_flow(outer, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_flex_align(outer, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_column(outer, 6, LV_PART_MAIN);
-    lv_obj_align(outer, LV_ALIGN_TOP_MID, 0, 8);
+    lv_obj_set_style_pad_left(outer, 4, LV_PART_MAIN);
+    lv_obj_set_style_pad_right(outer, 4, LV_PART_MAIN);
 
     lv_obj_t *inner = lv_obj_create(outer);
     lv_obj_remove_style_all(inner);
-    lv_obj_set_width(inner, lv_pct(92));
+    lv_obj_set_width(inner, lv_pct(100));
     lv_obj_set_height(inner, LV_SIZE_CONTENT);
     lv_obj_set_layout(inner, LV_LAYOUT_FLEX);
     lv_obj_set_flex_flow(inner, LV_FLEX_FLOW_COLUMN);
@@ -144,7 +149,7 @@ esp_err_t page_status_render(uint8_t subpage_index, lv_obj_t *root)
 
     lv_obj_t *rule = lv_obj_create(outer);
     lv_obj_remove_style_all(rule);
-    lv_obj_set_width(rule, lv_pct(80));
+    lv_obj_set_width(rule, lv_pct(90));
     lv_obj_set_height(rule, 2);
     lv_obj_set_style_bg_color(rule, lv_color_white(), LV_PART_MAIN);
     lv_obj_set_style_bg_opa(rule, LV_OPA_COVER, LV_PART_MAIN);
