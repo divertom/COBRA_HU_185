@@ -1,5 +1,4 @@
 #include "Boot_Logo.h"
-#include "Boot_Logo_Api.h"
 #include "ST77916.h"
 #include "Storage_Manager.h"
 #include "esp_log.h"
@@ -12,6 +11,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 static const char *TAG = "Boot_Logo";
 
@@ -98,29 +98,28 @@ static void register_lvgl_fs_driver(void)
     lv_fs_drv_register(&fs_drv);
 }
 
-esp_err_t boot_logo_display(void)
+esp_err_t boot_logo_display(lv_obj_t *scr, bool startup_timing)
 {
-    // Ensure backlight is off
-    Set_Backlight(0);
-    
-    // Register LVGL file system driver for SPIFFS
     register_lvgl_fs_driver();
-    
-    // Clear screen to black
-    lv_obj_t *scr = lv_scr_act();
+
+    if (startup_timing) {
+        Set_Backlight(0);
+    }
+
     lv_obj_set_style_bg_color(scr, lv_color_black(), LV_PART_MAIN);
     lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_invalidate(scr);
 
-    // Process LVGL to clear the screen
-    for (int i = 0; i < 10; i++) {
-        lv_timer_handler();
-        vTaskDelay(pdMS_TO_TICKS(50));
+    if (startup_timing) {
+        for (int i = 0; i < 12; i++) {
+            lv_timer_handler();
+        }
+    } else {
+        for (int i = 0; i < 8; i++) {
+            lv_timer_handler();
+            vTaskDelay(pdMS_TO_TICKS(2));
+        }
     }
-    
-    // Enable backlight before drawing
-    Set_Backlight(70);
-    vTaskDelay(pdMS_TO_TICKS(50));
     
     // Find logo file - prefer raw RGB565 format, then PNG
     
@@ -232,39 +231,67 @@ esp_err_t boot_logo_display(void)
         lv_img_header_t header;
         if (lv_img_decoder_get_info(lvgl_path, &header) == LV_RES_OK) {
             if (header.cf == LV_IMG_CF_TRUE_COLOR_ALPHA) {
-                lv_obj_set_style_bg_color(scr, lv_color_white(), LV_PART_MAIN);
+                /* White bg before backlight caused a bright flash; keep black during cold boot. */
+                lv_obj_set_style_bg_color(scr,
+                                          startup_timing ? lv_color_black() : lv_color_white(),
+                                          LV_PART_MAIN);
                 lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, LV_PART_MAIN);
                 lv_obj_set_style_img_opa(img, LV_OPA_COVER, 0);
             }
         }
     }
     
-    // Wait for image to load
-    for (int i = 0; i < 20; i++) {
-        lv_timer_handler();
-        vTaskDelay(pdMS_TO_TICKS(50));
+    if (startup_timing) {
+        /* Shorter waits than legacy (~3.5s); decode still needs some LVGL ticks. */
+        for (int i = 0; i < 18; i++) {
+            lv_timer_handler();
+            vTaskDelay(pdMS_TO_TICKS(8));
+        }
+    } else {
+        for (int i = 0; i < 40; i++) {
+            lv_timer_handler();
+            vTaskDelay(pdMS_TO_TICKS(3));
+        }
     }
-    
-    // Center and display the image
+
     lv_obj_align(img, LV_ALIGN_CENTER, 0, 0);
     lv_obj_invalidate(img);
     lv_obj_invalidate(scr);
-    
-    // Process LVGL to render the image
-    for (int i = 0; i < 50; i++) {
-        lv_timer_handler();
-        vTaskDelay(pdMS_TO_TICKS(50));
+
+    if (startup_timing) {
+        for (int i = 0; i < 24; i++) {
+            lv_timer_handler();
+            vTaskDelay(pdMS_TO_TICKS(5));
+        }
+    } else {
+        for (int i = 0; i < 24; i++) {
+            lv_timer_handler();
+            vTaskDelay(pdMS_TO_TICKS(3));
+        }
     }
-    
-    lv_refr_now(lv_disp_get_default());
-    
-    // Verify image was loaded
-    if (lv_obj_get_width(img) == 0 || lv_obj_get_height(img) == 0) {
-        ESP_LOGW(TAG, "Image may not have loaded correctly");
-        return ESP_FAIL;
+
+    lv_obj_update_layout(scr);
+    lv_obj_update_layout(img);
+
+    lv_coord_t w = lv_obj_get_width(img);
+    lv_coord_t h = lv_obj_get_height(img);
+    if (w <= 0 || h <= 0) {
+        const void *src = lv_img_get_src(img);
+        if (src != NULL && lv_img_src_get_type(src) == LV_IMG_SRC_VARIABLE) {
+            const lv_img_dsc_t *dsc = src;
+            if (dsc->header.w > 0 && dsc->header.h > 0) {
+                w = (lv_coord_t)dsc->header.w;
+                h = (lv_coord_t)dsc->header.h;
+            }
+        }
     }
-    
-    // Backlight was already enabled before drawing, so no need to enable it again
+    if (w <= 0 || h <= 0) {
+        ESP_LOGW(TAG, "Boot logo image dimensions pending layout; continuing anyway");
+    }
+
+    /* lv_refr_now + backlight: cold boot uses in-place active screen; carousel uses
+     * UI_Navigation after lv_scr_load(). */
+
     return ESP_OK;
 }
 

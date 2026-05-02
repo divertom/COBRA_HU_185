@@ -1,7 +1,7 @@
 #include "UI_Navigation.h"
 
-#include <string.h>
 #include <stdbool.h>
+#include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "Storage_Manager.h"
@@ -12,10 +12,12 @@
 #include "Page_Weather.h"
 #include "Page_Status.h"
 #include "esp_log.h"
+#include "lvgl.h"
+#include "ST77916.h"
 
 #define NAV_STATE_FILE_PATH "/ui_nav_state.bin"
 
-typedef esp_err_t (*ux_page_render_fn_t)(uint8_t subpage_index);
+typedef esp_err_t (*ux_page_render_fn_t)(uint8_t subpage_index, lv_obj_t *root);
 typedef uint8_t (*ux_page_subpage_count_fn_t)(void);
 
 typedef struct {
@@ -57,6 +59,11 @@ static uint8_t s_current_page_index;
 static uint8_t s_current_subpage_index;
 static uint8_t s_last_subpage[UX_PAGE_COUNT];
 static bool s_initialized;
+
+/** Index into s_pages for the page last shown on the active screen (255 = none yet). */
+static uint8_t s_last_rendered_page_index = 0xFFU;
+
+static bool s_boot_logo_use_startup_timing;
 
 static const char *nav_event_to_string(bt_remote_event_t event)
 {
@@ -118,7 +125,8 @@ static void nav_clamp_all_last_subpages(void)
 static void nav_reset_defaults(void)
 {
     (void)memset(s_last_subpage, 0, sizeof(s_last_subpage));
-    s_current_page_index = 0;
+    /* Boot logo is startup-only; default persisted page is Clock. */
+    s_current_page_index = (uint8_t)UX_PAGE_CLOCK;
     s_current_subpage_index = 0;
 }
 
@@ -172,11 +180,55 @@ static void nav_restore_or_default(void)
 
 static esp_err_t nav_render_current_page(void)
 {
-    esp_err_t ret = s_pages[s_current_page_index].render(s_current_subpage_index);
+    if (s_last_rendered_page_index != 0xFFU &&
+        s_last_rendered_page_index == (uint8_t)UX_PAGE_STATUS) {
+        page_status_prepare_leave();
+    }
+
+    /* Cold boot: draw logo on the active screen like pre-navigation builds.
+     * lv_refr_now() only composites the active screen — off-screen builds were
+     * refreshing the wrong (white) framebuffer and caused a flash after lv_scr_load(). */
+    const bool cold_boot_logo =
+        s_boot_logo_use_startup_timing &&
+        (s_current_page_index == (uint8_t)UX_PAGE_BOOT_LOGO);
+
+    if (cold_boot_logo) {
+        lv_obj_t *scr = lv_scr_act();
+        esp_err_t ret =
+            s_pages[s_current_page_index].render(s_current_subpage_index, scr);
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "Render failed for page %s", s_pages[s_current_page_index].name);
+            return ret;
+        }
+        lv_refr_now(lv_disp_get_default());
+        Set_Backlight(70);
+        s_last_rendered_page_index = s_current_page_index;
+        nav_log_state("Render");
+        return ESP_OK;
+    }
+
+    lv_obj_t *old_scr = lv_scr_act();
+    lv_obj_t *new_scr = lv_obj_create(NULL);
+    if (new_scr == NULL) {
+        ESP_LOGE(TAG, "Failed to allocate screen for page %s", s_pages[s_current_page_index].name);
+        return ESP_ERR_NO_MEM;
+    }
+    lv_obj_set_style_bg_color(new_scr, lv_color_black(), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(new_scr, LV_OPA_COVER, LV_PART_MAIN);
+
+    esp_err_t ret =
+        s_pages[s_current_page_index].render(s_current_subpage_index, new_scr);
     if (ret != ESP_OK) {
+        lv_obj_del(new_scr);
         ESP_LOGE(TAG, "Render failed for page %s", s_pages[s_current_page_index].name);
         return ret;
     }
+
+    lv_scr_load(new_scr);
+    lv_obj_del(old_scr);
+    lv_refr_now(lv_disp_get_default());
+
+    s_last_rendered_page_index = s_current_page_index;
     nav_log_state("Render");
     return ESP_OK;
 }
@@ -185,7 +237,8 @@ static void nav_next_page(void)
 {
     s_last_subpage[s_current_page_index] = s_current_subpage_index;
 
-    s_current_page_index = (uint8_t)((s_current_page_index + 1U) % (uint8_t)UX_PAGE_COUNT);
+    s_current_page_index =
+        (uint8_t)((s_current_page_index + 1U) % (uint8_t)UX_PAGE_COUNT);
 
     s_current_subpage_index = nav_clamp_subpage(s_current_page_index,
                                                 s_last_subpage[s_current_page_index]);
@@ -254,11 +307,19 @@ esp_err_t ux_navigation_init(void)
     return ESP_OK;
 }
 
+bool ux_navigation_boot_logo_startup_timing(void)
+{
+    return s_boot_logo_use_startup_timing;
+}
+
 esp_err_t ux_navigation_show_boot_logo(void)
 {
+    s_boot_logo_use_startup_timing = true;
     s_current_page_index = (uint8_t)UX_PAGE_BOOT_LOGO;
     s_current_subpage_index = 0;
-    return nav_render_current_page();
+    esp_err_t ret = nav_render_current_page();
+    s_boot_logo_use_startup_timing = false;
+    return ret;
 }
 
 esp_err_t ux_navigation_show_restored_page(void)

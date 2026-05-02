@@ -1,4 +1,5 @@
 #include "ST77916.h"
+#include "esp_heap_caps.h"
 
 #define LCD_OPCODE_WRITE_CMD        (0x02ULL)
 #define LCD_OPCODE_READ_CMD         (0x0BULL)
@@ -202,27 +203,37 @@ void ST7701_Reset(){
   Set_EXIO(TCA9554_EXIO2,true);
   vTaskDelay(pdMS_TO_TICKS(50));
 }
-void LCD_Init() {        
-  ST77916_Init();
-  Backlight_Init();
+void LCD_Init(void)
+{
+    /* Backlight off before panel pixels are driven (avoids lit white/garbage during init). */
+    Backlight_Init();
+    ST77916_Init();
 }
 
-static void test_draw_bitmap(esp_lcd_panel_handle_t panel_handle)
+/** Fast solid fill so GRAM is black before LVGL draws (avoids multi-second color-bar test + white flash). */
+static void lcd_clear_framebuffer_black(esp_lcd_panel_handle_t ph)
 {
-  uint16_t row_line = ((EXAMPLE_LCD_WIDTH / EXAMPLE_LCD_COLOR_BITS) << 1) >> 1;
-  uint8_t byte_per_pixel = EXAMPLE_LCD_COLOR_BITS / 8;
-  uint8_t *color = (uint8_t *)heap_caps_calloc(1, row_line * EXAMPLE_LCD_HEIGHT * byte_per_pixel, MALLOC_CAP_DMA);
-
-
-  for (int j = 0; j < EXAMPLE_LCD_COLOR_BITS; j++) {
-      for (int i = 0; i < row_line * EXAMPLE_LCD_HEIGHT; i++) {
-          for (int k = 0; k < byte_per_pixel; k++) {
-              color[i * byte_per_pixel + k] = (SPI_SWAP_DATA_TX(BIT(j), EXAMPLE_LCD_COLOR_BITS) >> (k * 8)) & 0xff;
-          }
-      }
-      esp_lcd_panel_draw_bitmap(panel_handle, 0, j * row_line, EXAMPLE_LCD_HEIGHT, (j + 1) * row_line, color);
-  }
-  free(color);
+    const int w = EXAMPLE_LCD_WIDTH;
+    const int h = EXAMPLE_LCD_HEIGHT;
+    const int stripe_h = 48;
+    const size_t pixels = (size_t)w * (size_t)stripe_h;
+    uint16_t *buf =
+        (uint16_t *)heap_caps_malloc(pixels * sizeof(uint16_t), MALLOC_CAP_DMA);
+    if (buf == NULL) {
+        ESP_LOGW(TAG_LCD, "lcd_clear_framebuffer_black: DMA buffer alloc failed");
+        return;
+    }
+    for (size_t i = 0; i < pixels; i++) {
+        buf[i] = 0x0000;
+    }
+    for (int y = 0; y < h; y += stripe_h) {
+        int y_end = y + stripe_h;
+        if (y_end > h) {
+            y_end = h;
+        }
+        (void)esp_lcd_panel_draw_bitmap(ph, 0, y, w, y_end, buf);
+    }
+    heap_caps_free(buf);
 }
 
 int QSPI_Init(void){
@@ -330,7 +341,7 @@ int QSPI_Init(void){
   // esp_lcd_panel_invert_color(panel_handle,false);
 
   esp_lcd_panel_disp_on_off(panel_handle, true);
-  test_draw_bitmap(panel_handle);
+  lcd_clear_framebuffer_black(panel_handle);
   return 1;
 }
 
@@ -354,6 +365,7 @@ void Backlight_Init(void)
         .pin_bit_mask = 1ULL << EXAMPLE_LCD_PIN_NUM_BK_LIGHT
     };
     ESP_ERROR_CHECK(gpio_config(&bk_gpio_config));
+    gpio_set_level(EXAMPLE_LCD_PIN_NUM_BK_LIGHT, EXAMPLE_LCD_BK_LIGHT_OFF_LEVEL);
 
     ledc_timer_config_t ledc_timer = {
         .duty_resolution = LEDC_TIMER_13_BIT,

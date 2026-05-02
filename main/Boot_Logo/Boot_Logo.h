@@ -7,6 +7,7 @@
 
 #include <stdint.h>
 #include "esp_err.h"
+#include "Boot_Logo_Api.h"
 
 #define BOOT_LOGO_WIDTH  360
 #define BOOT_LOGO_HEIGHT 360
@@ -16213,8 +16214,5 @@ static const uint16_t boot_logo[] = {
   0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,
   0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000
 };
-
-esp_err_t boot_logo_display(void);
-void boot_logo_enable_backlight(uint8_t brightness);
 
 #endif // BOOT_LOGO_H

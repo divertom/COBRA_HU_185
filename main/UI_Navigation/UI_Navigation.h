@@ -1,6 +1,7 @@
 #ifndef UI_NAVIGATION_H
 #define UI_NAVIGATION_H
 
+#include <stdbool.h>
 #include <stdint.h>
 #include "esp_err.h"
 #include "Wireless.h"
@@ -16,6 +17,9 @@ typedef enum {
 } ux_page_id_t;
 
 esp_err_t ux_navigation_init(void);
+
+/** True only while rendering the cold-boot splash via ux_navigation_show_boot_logo(). */
+bool ux_navigation_boot_logo_startup_timing(void);
 
 /** Current carousel page index (persisted/restored once init has run). */
 ux_page_id_t ux_navigation_get_active_page(void);

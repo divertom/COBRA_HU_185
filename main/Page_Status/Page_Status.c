@@ -79,7 +79,19 @@ static void style_status_label(lv_obj_t *label)
     lv_obj_set_width(label, lv_pct(100));
 }
 
-esp_err_t page_status_render(uint8_t subpage_index)
+void page_status_prepare_leave(void)
+{
+    if (s_status_ble_timer != NULL) {
+        lv_timer_del(s_status_ble_timer);
+        s_status_ble_timer = NULL;
+    }
+    s_conn_label = NULL;
+    s_name_label = NULL;
+    s_mac_label = NULL;
+    s_batt_label = NULL;
+}
+
+esp_err_t page_status_render(uint8_t subpage_index, lv_obj_t *root)
 {
     (void)subpage_index;
 
@@ -92,12 +104,10 @@ esp_err_t page_status_render(uint8_t subpage_index)
     s_mac_label = NULL;
     s_batt_label = NULL;
 
-    lv_obj_t *scr = lv_scr_act();
-    lv_obj_clean(scr);
-    lv_obj_set_style_bg_color(scr, lv_color_black(), LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(root, lv_color_black(), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(root, LV_OPA_COVER, LV_PART_MAIN);
 
-    lv_obj_t *outer = lv_obj_create(scr);
+    lv_obj_t *outer = lv_obj_create(root);
     lv_obj_remove_style_all(outer);
     lv_obj_set_width(outer, lv_pct(100));
     lv_obj_set_height(outer, LV_SIZE_CONTENT);

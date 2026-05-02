@@ -80,6 +80,7 @@ void LVGL_Init(void)
     disp_drv.user_data = panel_handle;                
     ESP_LOGI(TAG_LVGL,"Register display driver to LVGL");                                                  // Custom display driver user data
     disp = lv_disp_drv_register(&disp_drv);
+    lv_disp_set_bg_color(disp, lv_color_black());
 
     /********************* LVGL *********************/
     ESP_LOGI(TAG_LVGL, "Install LVGL tick timer");
