@@ -82,11 +82,11 @@ static lv_fs_res_t fs_tell(lv_fs_drv_t *drv, void *file_p, uint32_t *pos_p)
     return LV_FS_RES_OK;
 }
 
-static void register_lvgl_fs_driver(void)
+static void lvgl_fs_register_drive_a(void)
 {
     static lv_fs_drv_t fs_drv;
     lv_fs_drv_init(&fs_drv);
-    
+
     fs_drv.letter = 'A';
     fs_drv.cache_size = 0;
     fs_drv.open_cb = fs_open;
@@ -94,13 +94,23 @@ static void register_lvgl_fs_driver(void)
     fs_drv.read_cb = fs_read;
     fs_drv.seek_cb = fs_seek;
     fs_drv.tell_cb = fs_tell;
-    
+
     lv_fs_drv_register(&fs_drv);
+}
+
+void boot_logo_lvgl_fs_register(void)
+{
+    static bool s_registered;
+    if (s_registered) {
+        return;
+    }
+    lvgl_fs_register_drive_a();
+    s_registered = true;
 }
 
 esp_err_t boot_logo_display(lv_obj_t *scr, bool startup_timing)
 {
-    register_lvgl_fs_driver();
+    boot_logo_lvgl_fs_register();
 
     if (startup_timing) {
         Set_Backlight(0);

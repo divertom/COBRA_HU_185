@@ -23,6 +23,9 @@ idf_component_register(
                               "./Page_Weather/Page_Weather.c"
                               "./Page_Status/Page_Status.c"
                               "./UI_Navigation/UI_Navigation.c"
+                              "./Fonts/font_ddin_115.c"
+                              "./Fonts/font_ddin_28.c"
+                              "./Fonts/font_ddin_18.c"
 
                          INCLUDE_DIRS 
                               "./LCD_Driver/esp_lcd_st77916" 
@@ -46,5 +49,16 @@ idf_component_register(
                               "./Page_Weather"
                               "./Page_Status"
                               "./UI_Navigation"
+                              "./Fonts"
                               "."
                        )
+
+# Generated lv_font_conv .c files use:
+#   #ifdef LV_LVGL_H_INCLUDE_SIMPLE
+#   #include "lvgl.h"
+#   #else
+#   #include "lvgl/lvgl.h"
+#   #endif
+# We resolve "lvgl.h" via the lvgl__lvgl component's include dir, so force the
+# simple include path for this component.
+target_compile_definitions(${COMPONENT_LIB} PRIVATE LV_LVGL_H_INCLUDE_SIMPLE)

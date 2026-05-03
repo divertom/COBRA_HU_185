@@ -3,4 +3,7 @@
 nvs,        data,   nvs,      0x9000,       0x6000,
 factory,    0,      0,        0x10000,      3M,
 flash_test, data,   fat,      ,             528K,
+# ESP-SR speech models (`srmodels.bin`) — MUST stay named model (see esp-sr CMakeLists).
 model,      data,   spiffs,   ,             5900K,
+# App SPIFFS (`storage/`): logos, nav state, configs — flashes as build/userdata.bin
+userdata,   data,   spiffs,   ,             2048K,

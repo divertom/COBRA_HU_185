@@ -103,6 +103,7 @@ The project includes a SPIFFS partition for storing files like images and config
 
 ### Storage Directory Structure
 - `storage/images/` - Image files (optimized .raw files)
+- `storage/Logos/` - Boot and UI logos (PNG or raw). The clock wordmark is **`storage/Logos/Cobra_text.png`** (mirror of `artwork/Logos/Cobra_text.png`). Use **RGBA** PNGs only (do **not** run **`tools/optimize_png.py`** here — it flattens alpha onto white). Keep source width modest (on the order of **~440 px**) so decoding and zoom stay reliable on-chip. LVGL loads it as `A:/Logos/Cobra_text.png` → `/storage/Logos/...`.
 - `storage/config/` - Configuration files (JSON, TXT, etc.)
 
 ### Adding Files to SPIFFS
@@ -110,7 +111,17 @@ The project includes a SPIFFS partition for storing files like images and config
 2. Build the project: `idf.py build`
 3. Flash the project: `idf.py flash`
 
-The SPIFFS image is automatically generated during build and flashed to the `model` partition.
+App assets from `storage/` are packaged as **`userdata.bin`** and flashed to the **`userdata`** SPIFFS partition. The **`model`** partition is reserved for ESP-SR speech models (`srmodels.bin`); flashing both images to one address caused `esptool` **overlap at 0x394000**.
+
+> IMPORTANT - SPIFFS is NOT updated by app-only flash.
+> If you change anything under `storage/` (including `storage/Logos/Cobra_text.png`), you MUST run a full `idf.py flash`. `idf.py app-flash` and the VS Code "Flash app only" button only write the application partition, leaving stale files on **`userdata`**. Symptom: the clock wordmark renders as a large white block (stale oversized PNG still on flash).
+>
+> To re-flash **only** the app-storage SPIFFS after `idf.py build`, use the `userdata` offset from `build/flash_args` (with the default `partitions.csv` in this repo it is **`0x957000`**):
+>
+> ```bash
+> python -m esptool --chip esp32s3 -b 460800 --before default_reset --after hard_reset \
+>     write_flash 0x957000 build/userdata.bin
+> ```
 
 ### Accessing Files from Code
 Files stored in SPIFFS can be accessed using standard file I/O:
@@ -119,6 +130,45 @@ FILE* f = fopen("/storage/images/cobra_logo.raw", "rb");
 // Read and use the file
 fclose(f);
 ```
+
+## UI Layout Iteration
+
+### Quick Pillow preview (no flash needed)
+
+`tools/preview_clock.py` renders a 360x360 PNG approximation of `Page_Clock`
+using the same D-DIN font and `storage/Logos/Cobra_text.png` as the device.
+Edit constants/code in `main/Page_Clock/Page_Clock.c`, mirror the change in
+the same-named constants at the top of the script, then:
+
+```bash
+python tools/preview_clock.py --time 10:38 --ampm AM --day WED --date "MAY 28"
+# writes build/preview_clock.png
+```
+
+The font is committed to `tools/fonts/D-DINCondensed-Bold.ttf` (SIL OFL).
+Only `idf.py flash` is needed once you are happy with the preview.
+
+### SquareLine Studio (optional WYSIWYG)
+
+For more involved screens you can author layouts in SquareLine Studio
+(free for personal use, commercial seats sold separately):
+
+1. Install SquareLine Studio (`squareline.io`).
+2. Create a new project: 360x360, round, target **LVGL 8.3** (matches
+   `components/lvgl__lvgl`).
+3. Import assets:
+   - Image: `artwork/Logos/Cobra_text.png` (RGBA)
+   - Font: `tools/fonts/D-DINCondensed-Bold.ttf`, generate sizes 18 / 28 / 80,
+     bpp 4 (matches the existing `main/Fonts/font_ddin_*.c`).
+4. Build the screen with the same primitives we use today (labels for time and
+   captions, an `lv_img` for the wordmark, two thin rectangles for the rules).
+5. Export and either:
+   - copy the generated `ui_*.c` into a new page, or
+   - use it as a visual reference and transcribe alignment numbers into
+     `main/Page_Clock/Page_Clock.c`.
+
+The Pillow preview stays useful for fast tweaks; SquareLine is heavier-weight
+authoring.
 
 ## Notes
 

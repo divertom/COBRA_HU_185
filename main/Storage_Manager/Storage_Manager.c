@@ -8,13 +8,17 @@
 #include <stdbool.h>
 
 static const char *TAG = "Storage_Manager";
+
+/* Must match partitions.csv SPIFFS partition for `storage/` (not `model` — that is ESP-SR). */
+#define STORAGE_PARTITION_LABEL "userdata"
+
 static bool spiffs_mounted = false;
 
 esp_err_t storage_init(void)
 {
     esp_vfs_spiffs_conf_t conf = {
         .base_path = "/storage",
-        .partition_label = "model",
+        .partition_label = STORAGE_PARTITION_LABEL,
         .max_files = 5,
         .format_if_mount_failed = false
     };
@@ -192,7 +196,7 @@ esp_err_t storage_get_info(size_t *total_bytes, size_t *used_bytes)
         return ESP_ERR_INVALID_STATE;
     }
 
-    return esp_spiffs_info("model", total_bytes, used_bytes);
+    return esp_spiffs_info(STORAGE_PARTITION_LABEL, total_bytes, used_bytes);
 }
 
 esp_err_t storage_deinit(void)
@@ -201,7 +205,7 @@ esp_err_t storage_deinit(void)
         return ESP_ERR_INVALID_STATE;
     }
 
-    esp_err_t ret = esp_vfs_spiffs_unregister("model");
+    esp_err_t ret = esp_vfs_spiffs_unregister(STORAGE_PARTITION_LABEL);
     if (ret == ESP_OK) {
         spiffs_mounted = false;
     }
