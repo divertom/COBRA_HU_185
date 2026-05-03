@@ -25,6 +25,27 @@ This is a copy of the ESP32-S3-LCD-1.85-Test project with the following function
 2. Run `idf.py build` to build the project
 3. Run `idf.py flash` to flash to device
 
+## RTC time (serial)
+
+Wall time is kept on the **PCF85063** (I2C RTC). The clock page reads that chip every second.
+
+To set the date and time from the **serial terminal** (e.g. `idf.py monitor`), send a full line ending with Enter:
+
+```text
+settime:HHMMYYYYMMDD
+```
+
+There must be **exactly 12 digits** after the colon, with no spaces:
+
+| Part | Digits | Meaning |
+|------|--------|---------|
+| `HHMM` | 4 | Hour (00–23), minute (00–59) |
+| `YYYYMMDD` | 8 | Four-digit year, two-digit month, two-digit day (ISO order) |
+
+**Example:** `settime:143020260502` sets **2026-05-02** at **14:30:00** (seconds are always set to **0**).
+
+The chip stores the year as an offset from **1970**, so valid years are **1970–2069**. On success or error, the firmware prints a short line to the console (e.g. `settime: OK …` or a validation message).
+
 ## Image Optimization Tools
 
 The project includes Python tools in the `tools/` directory for optimizing PNG images for embedded use:

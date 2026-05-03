@@ -180,7 +180,7 @@ static void clock_refresh(lv_timer_t *t)
         m = 1U;
     }
     char mbuf[14];
-    (void)snprintf(mbuf, sizeof(mbuf), "%s %02u",
+    (void)snprintf(mbuf, sizeof(mbuf), "%s %u",
                    MONTHS_3[m - 1U], (unsigned)datetime.day);
     lv_label_set_text(s_date_val_lbl, mbuf);
 }
