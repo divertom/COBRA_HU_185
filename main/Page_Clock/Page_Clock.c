@@ -155,6 +155,8 @@ static void clock_refresh(lv_timer_t *t)
         return;
     }
 
+    PCF85063_Read_Time(&datetime);
+
     uint8_t h24 = datetime.hour;
     uint8_t h12 = (uint8_t)(h24 % 12U);
     if (h12 == 0U) {

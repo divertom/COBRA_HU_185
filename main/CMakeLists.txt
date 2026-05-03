@@ -23,6 +23,7 @@ idf_component_register(
                               "./Page_Weather/Page_Weather.c"
                               "./Page_Status/Page_Status.c"
                               "./UI_Navigation/UI_Navigation.c"
+                              "./Console_SetTime/Console_SetTime.c"
                               "./Fonts/font_ddin_115.c"
                               "./Fonts/font_ddin_reg_32.c"
                               "./Fonts/font_ddin_reg_20.c"
@@ -51,6 +52,7 @@ idf_component_register(
                               "./Page_Weather"
                               "./Page_Status"
                               "./UI_Navigation"
+                              "./Console_SetTime"
                               "./Fonts"
                               "."
                        )

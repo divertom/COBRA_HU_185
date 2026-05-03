@@ -10,20 +10,19 @@
 #include "Storage_Manager.h"
 #include "Boot_Logo_Api.h"
 #include "UI_Navigation.h"
+#include "Console_SetTime.h"
 #include "esp_log.h"
 
 void Driver_Loop(void *parameter)
 {
-    Wireless_Init();
-    while(1)
-    {
+    /* Wireless_Init() runs once from app_main — do not call here or BLE_Init runs twice and aborts. */
+    while (1) {
         QMI8658_Loop();
         PCF85063_Loop();
         BAT_Get_Volts();
         PWR_Loop();
         vTaskDelay(pdMS_TO_TICKS(100));
     }
-    vTaskDelete(NULL);
 }
 void Driver_Init(void)
 {
@@ -50,6 +49,9 @@ void app_main(void)
     if (storage_init() != ESP_OK) {
         ESP_LOGE("main", "Failed to initialize SPIFFS");
     }
+
+    Driver_Init();
+    console_settime_task_start();
 
     // Initialize LCD with backlight OFF
     ESP_LOGI("main", "Initializing LCD (backlight OFF)");

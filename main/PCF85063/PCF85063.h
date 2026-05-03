@@ -83,6 +83,8 @@ void PCF85063_Set_All(datetime_t time);
 
 void PCF85063_Read_Time(datetime_t *time);
 
+/** Gregorian weekday for PCF85063 dotw: 0 = Sunday … 6 = Saturday */
+uint8_t PCF85063_Weekday_Sunday0(uint16_t year, uint8_t month, uint8_t day);
 
 void PCF85063_Enable_Alarm(void);
 uint8_t PCF85063_Get_Alarm_Flag();
