@@ -1,7 +1,7 @@
 /*******************************************************************************
  * Size: 115 px
  * Bpp: 4
- * Opts: --font e:\Cobra\COBRA_HU_185\tools\fonts\D-DINCondensed-Bold.ttf --size 115 --bpp 4 --format lvgl --output e:\Cobra\COBRA_HU_185\main\Fonts\font_ddin_115.c --symbols 0123456789: --no-compress --force-fast-kern-format
+ * Opts: --font tools\fonts\D-DINCondensed-Bold.ttf --size 115 --bpp 4 --format lvgl -o main\Fonts\font_ddin_115.c --symbols 0123456789: --no-compress --force-fast-kern-format
  ******************************************************************************/
 
 #ifdef LV_LVGL_H_INCLUDE_SIMPLE

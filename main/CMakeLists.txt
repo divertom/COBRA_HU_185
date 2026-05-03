@@ -24,8 +24,10 @@ idf_component_register(
                               "./Page_Status/Page_Status.c"
                               "./UI_Navigation/UI_Navigation.c"
                               "./Fonts/font_ddin_115.c"
-                              "./Fonts/font_ddin_28.c"
-                              "./Fonts/font_ddin_18.c"
+                              "./Fonts/font_ddin_reg_32.c"
+                              "./Fonts/font_ddin_reg_20.c"
+                              "./Fonts/font_ddin_reg_44.c"
+                              "./Fonts/font_ddin_reg_15.c"
 
                          INCLUDE_DIRS 
                               "./LCD_Driver/esp_lcd_st77916" 

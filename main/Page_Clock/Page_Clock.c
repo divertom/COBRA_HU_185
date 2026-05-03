@@ -13,17 +13,26 @@
  * Tune only these numbers — no lv_obj_align / align_to between blocks.
  */
 #define CLOCK_ABS_TIME_ROW_CY_PX 160 /* target screen Y for vertical center of HH:MM + AM row */
-#define CLOCK_ABS_DATE_OVERLAP_PX  35 /* date_row top Y = time_strip bottom − this (overlap) */
+#define CLOCK_ABS_DATE_OVERLAP_PX 25 /* date_row top Y = time_strip bottom − this (overlap) */
 
 #define CLOCK_DATE_GAP        3 /* was 4; -20 % gap between DAY | DATE columns */
-#define CLOCK_TIME_PAD_COLUMN 10 /* gap between HH:MM and AM/PM (match time_row pad_column) */
+#define CLOCK_TIME_PAD_COLUMN 8 /* gap between HH:MM and AM/PM (match time_row pad_column) */
 /** Gap (px) between top rule and time, time and bottom rule inside `time_strip`. */
 #define CLOCK_TIME_BAND_PAD_ROW 15
-/** Gap (px) between "DAY"/"DATE" caption and SUN / month-day value. */
-#define CLOCK_CAPTION_PAD_ROW 4
+/**
+ * Y gap (px) between the DAY / DATE caption labels and the values (weekday, month+day) below.
+ * (Flex `pad_row` on each caption column; tune for vertical spacing only.)
+ */
+#define CLOCK_DATE_CAPTION_VALUE_GAP_PX 10
+
+/** Bottom dial credit (D-DIN Condensed Regular 15 px); gap above lower cardinal tick. */
+#define CLOCK_CREDIT_LINE_SPACE_PX      3 /* extra Y gap between title line and "2026" */
+#define CLOCK_CREDIT_GAP_ABOVE_TICK 8
+#define CLOCK_CREDIT_TICK_TOP_PX \
+    ((lv_coord_t)((GAUGE_PIXEL_SIZE) / 2 + (GAUGE_RING_RADIUS) - (GAUGE_TICK_LENGTH)))
 
 /** LVGL text letter-space (px) for clock labels — keep in sync with `lv_txt_get_size` below. */
-#define CLOCK_TIME_LETTER_SPACE         1
+#define CLOCK_TIME_LETTER_SPACE         5
 #define CLOCK_AMPM_LETTER_SPACE         0
 #define CLOCK_DATE_VALUE_LETTER_SPACE   0
 
@@ -35,8 +44,8 @@ static lv_coord_t clock_max_time_row_width(void)
     lv_point_t sz_12, sz_00, sz_am, sz_pm;
     lv_txt_get_size(&sz_12, "12:00", &font_ddin_115, ls_time, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
     lv_txt_get_size(&sz_00, "00:00", &font_ddin_115, ls_time, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
-    lv_txt_get_size(&sz_am, "AM", &font_ddin_28, ls_ampm, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
-    lv_txt_get_size(&sz_pm, "PM", &font_ddin_28, ls_ampm, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+    lv_txt_get_size(&sz_am, "AM", &font_ddin_reg_32, ls_ampm, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+    lv_txt_get_size(&sz_pm, "PM", &font_ddin_reg_32, ls_ampm, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
     lv_coord_t tw  = LV_MAX(sz_12.x, sz_00.x);
     lv_coord_t asz = LV_MAX(sz_am.x, sz_pm.x);
     return tw + (lv_coord_t)CLOCK_TIME_PAD_COLUMN + asz;
@@ -103,17 +112,17 @@ static void caption_column(lv_obj_t *parent, const char *caption_text, lv_obj_t 
     lv_obj_set_flex_align(col, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER,
                           LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_flex_grow(col, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_row(col, CLOCK_CAPTION_PAD_ROW, LV_PART_MAIN);
+    lv_obj_set_style_pad_row(col, (lv_coord_t)CLOCK_DATE_CAPTION_VALUE_GAP_PX, LV_PART_MAIN);
 
     lv_obj_t *cap = lv_label_create(col);
     lv_obj_set_style_pad_all(cap, 0, LV_PART_MAIN);
-    lv_obj_set_style_text_font(cap, &font_ddin_18, LV_PART_MAIN);
+    lv_obj_set_style_text_font(cap, &font_ddin_reg_20, LV_PART_MAIN);
     lv_obj_set_style_text_color(cap, lv_color_white(), LV_PART_MAIN);
     lv_label_set_text(cap, caption_text);
 
     lv_obj_t *val = lv_label_create(col);
     lv_obj_set_style_pad_all(val, 0, LV_PART_MAIN);
-    lv_obj_set_style_text_font(val, &font_ddin_28, LV_PART_MAIN);
+    lv_obj_set_style_text_font(val, &font_ddin_reg_44, LV_PART_MAIN);
     lv_obj_set_style_text_color(val, lv_color_white(), LV_PART_MAIN);
     lv_obj_set_style_text_letter_space(val, (lv_coord_t)CLOCK_DATE_VALUE_LETTER_SPACE, LV_PART_MAIN);
     if (value_out != NULL) {
@@ -195,7 +204,7 @@ esp_err_t page_clock_render(uint8_t subpage_index, lv_obj_t *root)
     lv_obj_set_layout(root, 0); /* no flex/grid on screen — avoids stretched gaps between widgets */
 
     const lv_coord_t rule_w         = clock_max_time_row_width();
-    const lv_coord_t rule_visible_w = (lv_coord_t)((int32_t)rule_w * 80 / 100); /* -20 % */
+    const lv_coord_t rule_visible_w = (lv_coord_t)((int32_t)rule_w * 90 / 100); //90% o fmax width
 
     /*
      * Time strip: top rule, HH:MM+AM, bottom rule — flex only *inside* the strip.
@@ -227,13 +236,13 @@ esp_err_t page_clock_render(uint8_t subpage_index, lv_obj_t *root)
     lv_obj_set_style_pad_column(time_row, CLOCK_TIME_PAD_COLUMN, LV_PART_MAIN);
 
     s_time_lbl = lv_label_create(time_row);
-    /* ~20 % taller than font_ddin_96; avoid transform_zoom on ESP32-S3. */
+    /* D-DIN Condensed Bold 115 px; avoid transform_zoom on ESP32-S3. */
     lv_obj_set_style_text_font(s_time_lbl, &font_ddin_115, LV_PART_MAIN);
     lv_obj_set_style_text_color(s_time_lbl, lv_color_white(), LV_PART_MAIN);
     lv_obj_set_style_text_letter_space(s_time_lbl, (lv_coord_t)CLOCK_TIME_LETTER_SPACE, LV_PART_MAIN);
 
     s_ampm_lbl = lv_label_create(time_row);
-    lv_obj_set_style_text_font(s_ampm_lbl, &font_ddin_28, LV_PART_MAIN);
+    lv_obj_set_style_text_font(s_ampm_lbl, &font_ddin_reg_32, LV_PART_MAIN);
     lv_obj_set_style_text_color(s_ampm_lbl, lv_color_white(), LV_PART_MAIN);
     lv_obj_set_style_text_letter_space(s_ampm_lbl, (lv_coord_t)CLOCK_AMPM_LETTER_SPACE, LV_PART_MAIN);
 
@@ -254,10 +263,28 @@ esp_err_t page_clock_render(uint8_t subpage_index, lv_obj_t *root)
     caption_column(date_row, "DAY", &s_day_val_lbl);
     caption_column(date_row, "DATE", &s_date_val_lbl);
 
+    lv_obj_t *credit_lbl = lv_label_create(root);
+    lv_obj_remove_style_all(credit_lbl);
+    lv_obj_set_style_pad_all(credit_lbl, 0, LV_PART_MAIN);
+    lv_obj_set_style_text_font(credit_lbl, &font_ddin_reg_15, LV_PART_MAIN);
+    lv_obj_set_style_text_color(credit_lbl, lv_color_white(), LV_PART_MAIN);
+    lv_obj_set_style_text_align(credit_lbl, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_obj_set_style_text_line_space(credit_lbl, (lv_coord_t)CLOCK_CREDIT_LINE_SPACE_PX, LV_PART_MAIN);
+    lv_label_set_long_mode(credit_lbl, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(credit_lbl, GAUGE_PIXEL_SIZE);
+    lv_label_set_text(credit_lbl, "STEIN CLOCK DESIGN\n2026"); /* width set before text for WRAP */
+
     lv_obj_set_pos(time_strip, 0, 0);
     lv_obj_set_pos(date_row, 0, 0);
 
     clock_place_blocks_absolute(root, time_strip, time_row, date_row, rule_w);
+
+    lv_obj_update_layout(credit_lbl);
+    {
+        lv_coord_t ch = lv_obj_get_height(credit_lbl);
+        lv_coord_t cy  = CLOCK_CREDIT_TICK_TOP_PX - (lv_coord_t)CLOCK_CREDIT_GAP_ABOVE_TICK - ch;
+        lv_obj_set_pos(credit_lbl, 0, cy);
+    }
 
     clock_refresh(NULL);
     s_clock_timer = lv_timer_create(clock_refresh, 1000, NULL);

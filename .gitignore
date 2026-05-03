@@ -34,6 +34,9 @@ Thumbs.db
 # Dependencies lock (regenerated per machine; local paths are not portable)
 dependencies.lock
 
+# Preview tooling (npm deps when running lv_font_conv via npx locally)
+tools/node_modules/
+
 # Temporary files
 *.tmp
 *.log

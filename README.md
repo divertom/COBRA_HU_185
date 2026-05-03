@@ -145,7 +145,12 @@ python tools/preview_clock.py --time 10:38 --ampm AM --day WED --date "MAY 28"
 # writes build/preview_clock.png
 ```
 
-The font is committed to `tools/fonts/D-DINCondensed-Bold.ttf` (SIL OFL).
+Clock fonts (SIL OFL) live under `tools/fonts/`:
+
+- `D-DINCondensed-Bold.ttf` — time digits (`HH:MM`) at **115 px** (see `font_ddin_115.c`).
+- `D-DINCondensed-Regular.ttf` — AM/PM **32 px**, DAY/DATE captions **20 px**, weekday / month-day **44 px**,
+  bottom credit **15 px** (`font_ddin_reg_32.c`, `font_ddin_reg_20.c`, `font_ddin_reg_44.c`, `font_ddin_reg_15.c`).
+
 Only `idf.py flash` is needed once you are happy with the preview.
 
 ### SquareLine Studio (optional WYSIWYG)
@@ -158,8 +163,9 @@ For more involved screens you can author layouts in SquareLine Studio
    `components/lvgl__lvgl`).
 3. Import assets:
    - Image: `artwork/Logos/Cobra_text.png` (RGBA)
-   - Font: `tools/fonts/D-DINCondensed-Bold.ttf`, generate sizes 18 / 28 / 80,
-     bpp 4 (matches the existing `main/Fonts/font_ddin_*.c`).
+   - Fonts: `tools/fonts/D-DINCondensed-Bold.ttf` (115 px time) and
+     `tools/fonts/D-DINCondensed-Regular.ttf` (32 / 20 / 44 px as above), bpp 4
+     (matches the generated `main/Fonts/font_ddin_*.c`).
 4. Build the screen with the same primitives we use today (labels for time and
    captions, an `lv_img` for the wordmark, two thin rectangles for the rules).
 5. Export and either:
