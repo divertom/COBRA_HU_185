@@ -163,6 +163,7 @@ the same-named constants at the top of the script, then:
 
 ```bash
 python tools/preview_clock.py --time 10:38 --ampm AM --day WED --date "MAY 28"
+python tools/preview_clock.py --24h --time 23:59 --day WED --date "MAY 28"
 # writes build/preview_clock.png
 ```
 
@@ -211,6 +212,7 @@ The firmware now includes a full-screen page navigation framework driven by the 
   - Circular wrap is enabled in both directions.
 - Vertical navigation (Volume+/Volume-):
   - Selects subpages inside the active page.
+  - On **Clock**, **Vol-** moves to a **24-hour** time row (no AM/PM); **Vol+** returns to **12-hour** with AM/PM (default).
 - Boot behavior:
   - Boot logo is shown for 5 seconds on startup.
   - After timeout, the last selected page/subpage is restored.

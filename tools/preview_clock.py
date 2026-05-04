@@ -21,6 +21,7 @@ Usage (from the project root):
 
     python tools/preview_clock.py                       # 12:00 AM SUN JAN 00
     python tools/preview_clock.py --time 10:38 --ampm AM --day WED --date "MAY 28"
+    python tools/preview_clock.py --24h --time 23:59    # second clock subpage (no AM/PM)
     python tools/preview_clock.py --out build/clock_alt.png
 
 Requires: Pillow (`pip install Pillow`).
@@ -179,6 +180,16 @@ def max_time_row_rule_width() -> int:
     return max(w12, w00) + CLOCK_TIME_PAD_COLUMN + max(w_am, w_pm)
 
 
+def max_time_row_rule_width_24h() -> int:
+    """Match clock_max_time_row_width_24h() in Page_Clock.c (time only, no AM/PM)."""
+    font_time = load_font_bold(FONT_SIZE_TIME)
+    ls_t = CLOCK_TIME_LETTER_SPACE
+    w2359 = text_width_letter_spaced(font_time, "23:59", ls_t)
+    w0959 = text_width_letter_spaced(font_time, "09:59", ls_t)
+    w0000 = text_width_letter_spaced(font_time, "00:00", ls_t)
+    return max(w2359, w0959, w0000)
+
+
 def draw_gauge_background(img: Image.Image) -> None:
     """White ring + 4 cardinal ticks on black, mirroring gauge_bg_lvgl.c."""
     cx = GAUGE_PIXEL_SIZE // 2
@@ -227,20 +238,24 @@ def render_time_band(
     strip_x: int,
     strip_y: int,
     heights: Dict[str, int],
+    use_24h: bool = False,
 ) -> None:
-    """Draw time_strip: rules + HH:MM + AM/PM (mirrors flex layout + positions)."""
+    """Draw time_strip: rules + HH:MM [+ AM/PM] (mirrors flex layout + positions)."""
     d = ImageDraw.Draw(canvas)
     font_time = load_font_bold(FONT_SIZE_TIME)
     font_ampm = load_font_regular(FONT_SIZE_AMPM)
-
-    bbox_ampm = text_size(font_ampm, ampm_text)
-    ampm_w = bbox_ampm[2] - bbox_ampm[0]
 
     time_w_ls = text_width_letter_spaced(
         font_time, time_text, CLOCK_TIME_LETTER_SPACE
     )
 
-    tr_h = time_row_height_lvgl(heights)
+    if use_24h:
+        ampm_w = 0
+        tr_h = heights["time"]
+    else:
+        bbox_ampm = text_size(font_ampm, ampm_text)
+        ampm_w = bbox_ampm[2] - bbox_ampm[0]
+        tr_h = time_row_height_lvgl(heights)
     tr_y = CLOCK_RULE_THICK + CLOCK_TIME_BAND_PAD_ROW
     strip_h = tr_h + 2 * CLOCK_RULE_THICK + 2 * CLOCK_TIME_BAND_PAD_ROW
 
@@ -269,7 +284,7 @@ def render_time_band(
         fill=WHITE,
     )
 
-    row_w = time_w_ls + CLOCK_TIME_PAD_COLUMN + ampm_w
+    row_w = time_w_ls if use_24h else time_w_ls + CLOCK_TIME_PAD_COLUMN + ampm_w
     row_left = strip_x + (rule_w - row_w) // 2
 
     time_row_bottom = strip_y + tr_y + tr_h
@@ -284,9 +299,11 @@ def render_time_band(
         CLOCK_TIME_LETTER_SPACE,
     )
 
-    ampm_x = row_left + time_w_ls + CLOCK_TIME_PAD_COLUMN - bbox_ampm[0]
-    ampm_y = time_row_bottom - bbox_ampm[3]
-    d.text((ampm_x, ampm_y), ampm_text, font=font_ampm, fill=WHITE)
+    if not use_24h:
+        bbox_ampm = text_size(font_ampm, ampm_text)
+        ampm_x = row_left + time_w_ls + CLOCK_TIME_PAD_COLUMN - bbox_ampm[0]
+        ampm_y = time_row_bottom - bbox_ampm[3]
+        d.text((ampm_x, ampm_y), ampm_text, font=font_ampm, fill=WHITE)
 
 
 def render_date_columns(
@@ -358,16 +375,18 @@ def render_credit(canvas: Image.Image) -> None:
     d.multiline_text((left, top_y), text, font=font, fill=WHITE, spacing=spacing, align="center")
 
 
-def layout_clock(heights: Dict[str, int]) -> Tuple[int, int, int, int]:
+def layout_clock(
+    heights: Dict[str, int], *, use_24h: bool = False
+) -> Tuple[int, int, int, int]:
     """
     Replicate clock_place_blocks_absolute() placement.
 
     Returns:
         rule_w, strip_x, strip_y, date_row_top_y
     """
-    rule_w = max_time_row_rule_width()
+    rule_w = max_time_row_rule_width_24h() if use_24h else max_time_row_rule_width()
 
-    tr_h = time_row_height_lvgl(heights)
+    tr_h = heights["time"] if use_24h else time_row_height_lvgl(heights)
     tr_y = CLOCK_RULE_THICK + CLOCK_TIME_BAND_PAD_ROW
     mid_tr = tr_y + tr_h // 2
     strip_y = CLOCK_ABS_TIME_ROW_CY_PX - mid_tr
@@ -382,15 +401,28 @@ def layout_clock(heights: Dict[str, int]) -> Tuple[int, int, int, int]:
 
 
 def render(
-    time_text: str, ampm_text: str, day_text: str, date_text: str, out_path: Path
+    time_text: str,
+    ampm_text: str,
+    day_text: str,
+    date_text: str,
+    out_path: Path,
+    *,
+    use_24h: bool = False,
 ) -> Path:
     heights = load_lvgl_line_heights(REPO_ROOT)
-    rule_w, strip_x, strip_y, date_row_top = layout_clock(heights)
+    rule_w, strip_x, strip_y, date_row_top = layout_clock(heights, use_24h=use_24h)
 
     canvas = Image.new("RGBA", (GAUGE_PIXEL_SIZE, GAUGE_PIXEL_SIZE), BLACK)
     draw_gauge_background(canvas)
     render_time_band(
-        canvas, time_text, ampm_text, rule_w, strip_x, strip_y, heights
+        canvas,
+        time_text,
+        ampm_text,
+        rule_w,
+        strip_x,
+        strip_y,
+        heights,
+        use_24h=use_24h,
     )
     render_date_columns(canvas, day_text, date_text, date_row_top, heights)
     render_credit(canvas)
@@ -403,7 +435,13 @@ def render(
 def parse_args(argv=None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--time", default="12:00", help="HH:MM (default %(default)s)")
-    p.add_argument("--ampm", default="AM", choices=["AM", "PM"], help="AM/PM badge")
+    p.add_argument("--ampm", default="AM", choices=["AM", "PM"], help="AM/PM badge (ignored with --24h)")
+    p.add_argument(
+        "--24h",
+        dest="use_24h",
+        action="store_true",
+        help="24-hour clock subpage layout (narrower rules, no AM/PM)",
+    )
     p.add_argument("--day", default="SUN", help="3-letter weekday (default %(default)s)")
     p.add_argument("--date", default="JAN 00", help="Month + day (default '%(default)s')")
     p.add_argument("--out", default=str(DEFAULT_OUT), help="Output PNG path")
@@ -412,7 +450,14 @@ def parse_args(argv=None) -> argparse.Namespace:
 
 def main(argv=None) -> int:
     args = parse_args(argv)
-    out = render(args.time, args.ampm, args.day, args.date, Path(args.out))
+    out = render(
+        args.time,
+        args.ampm,
+        args.day,
+        args.date,
+        Path(args.out),
+        use_24h=args.use_24h,
+    )
     rel = os.path.relpath(out, REPO_ROOT)
     print(f"Wrote preview: {rel}")
     return 0

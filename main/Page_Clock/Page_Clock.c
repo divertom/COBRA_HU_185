@@ -1,6 +1,7 @@
 #include "Page_Clock.h"
 
 #include <stdio.h>
+#include <stdbool.h>
 
 #include "Fonts.h"
 #include "PCF85063.h"
@@ -51,11 +52,23 @@ static lv_coord_t clock_max_time_row_width(void)
     return tw + (lv_coord_t)CLOCK_TIME_PAD_COLUMN + asz;
 }
 
+/** Max width of HH:MM for 24h strip rules (no AM/PM column). */
+static lv_coord_t clock_max_time_row_width_24h(void)
+{
+    const lv_coord_t ls_time = (lv_coord_t)CLOCK_TIME_LETTER_SPACE;
+    lv_point_t sz_2359, sz_0959, sz_0000;
+    lv_txt_get_size(&sz_2359, "23:59", &font_ddin_115, ls_time, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+    lv_txt_get_size(&sz_0959, "09:59", &font_ddin_115, ls_time, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+    lv_txt_get_size(&sz_0000, "00:00", &font_ddin_115, ls_time, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+    return LV_MAX(LV_MAX(sz_2359.x, sz_0959.x), sz_0000.x);
+}
+
 static lv_obj_t  *s_time_lbl;
 static lv_obj_t  *s_ampm_lbl;
 static lv_obj_t  *s_day_val_lbl;
 static lv_obj_t  *s_date_val_lbl;
 static lv_timer_t *s_clock_timer;
+static bool s_clock_is_24h;
 
 static const char *const MONTHS_3[12] = {
     "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
@@ -164,10 +177,17 @@ static void clock_refresh(lv_timer_t *t)
     }
 
     char tbuf[8];
-    (void)snprintf(tbuf, sizeof(tbuf), "%u:%02u",
-                   (unsigned)h12, (unsigned)datetime.minute);
+    if (s_clock_is_24h) {
+        (void)snprintf(tbuf, sizeof(tbuf), "%02u:%02u",
+                       (unsigned)h24, (unsigned)datetime.minute);
+    } else {
+        (void)snprintf(tbuf, sizeof(tbuf), "%u:%02u",
+                       (unsigned)h12, (unsigned)datetime.minute);
+    }
     lv_label_set_text(s_time_lbl, tbuf);
-    lv_label_set_text(s_ampm_lbl, (h24 < 12U) ? "AM" : "PM");
+    if (!s_clock_is_24h && s_ampm_lbl != NULL) {
+        lv_label_set_text(s_ampm_lbl, (h24 < 12U) ? "AM" : "PM");
+    }
 
     uint8_t wday = datetime.dotw;
     if (wday > 6U) {
@@ -187,7 +207,7 @@ static void clock_refresh(lv_timer_t *t)
 
 esp_err_t page_clock_render(uint8_t subpage_index, lv_obj_t *root)
 {
-    (void)subpage_index;
+    s_clock_is_24h = (subpage_index == 1U);
 
     if (s_clock_timer != NULL) {
         lv_timer_del(s_clock_timer);
@@ -205,8 +225,9 @@ esp_err_t page_clock_render(uint8_t subpage_index, lv_obj_t *root)
     lv_obj_set_style_bg_opa(root, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_set_layout(root, 0); /* no flex/grid on screen — avoids stretched gaps between widgets */
 
-    const lv_coord_t rule_w         = clock_max_time_row_width();
-    const lv_coord_t rule_visible_w = (lv_coord_t)((int32_t)rule_w * 90 / 100); //90% o fmax width
+    const lv_coord_t rule_w         = s_clock_is_24h ? clock_max_time_row_width_24h()
+                                                     : clock_max_time_row_width();
+    const lv_coord_t rule_visible_w = (lv_coord_t)((int32_t)rule_w * 90 / 100); /* 90% of rule width */
 
     /*
      * Time strip: top rule, HH:MM+AM, bottom rule — flex only *inside* the strip.
@@ -247,6 +268,9 @@ esp_err_t page_clock_render(uint8_t subpage_index, lv_obj_t *root)
     lv_obj_set_style_text_font(s_ampm_lbl, &font_ddin_reg_32, LV_PART_MAIN);
     lv_obj_set_style_text_color(s_ampm_lbl, lv_color_white(), LV_PART_MAIN);
     lv_obj_set_style_text_letter_space(s_ampm_lbl, (lv_coord_t)CLOCK_AMPM_LETTER_SPACE, LV_PART_MAIN);
+    if (s_clock_is_24h) {
+        lv_obj_add_flag(s_ampm_lbl, LV_OBJ_FLAG_HIDDEN);
+    }
 
     (void)white_rule_create(time_strip, rule_visible_w);
 
@@ -296,5 +320,5 @@ esp_err_t page_clock_render(uint8_t subpage_index, lv_obj_t *root)
 
 uint8_t page_clock_get_subpage_count(void)
 {
-    return 1;
+    return 2;
 }
