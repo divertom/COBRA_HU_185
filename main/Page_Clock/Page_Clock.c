@@ -5,9 +5,27 @@
 
 #include "Fonts.h"
 #include "PCF85063.h"
+#include "Storage_Manager.h"
 #include "UI_Navigation.h"
+#include "esp_heap_caps.h"
+#include "esp_log.h"
 #include "gauge_bg_lvgl.h"
 #include "lvgl.h"
+
+#include <stdlib.h>
+
+static const char *const PAGE_CLOCK_LOG_TAG = "Page_Clock";
+
+/** LVGL converter .bin: 4-byte `lv_img_header_t` then RGB565 pixels (380x43, cf TRUE_COLOR). */
+#define COBRA_TEXT_IMG_HDR_BYTES 4
+#define COBRA_TEXT_IMG_W         380
+#define COBRA_TEXT_IMG_H         43
+#define COBRA_TEXT_IMG_BPP       2
+#define COBRA_TEXT_IMG_BYTES \
+    ((size_t)(COBRA_TEXT_IMG_W) * (size_t)(COBRA_TEXT_IMG_H) * (size_t)(COBRA_TEXT_IMG_BPP))
+#define COBRA_TEXT_BIN_MIN_BYTES ((size_t)(COBRA_TEXT_IMG_HDR_BYTES) + (size_t)(COBRA_TEXT_IMG_BYTES))
+
+static const char k_cobra_clock_logo_storage[] = "/Logos/Cobra_text.bin";
 
 /*
  * Absolute layout on root (0,0) = top-left; panel matches GAUGE_PIXEL_SIZE (360×360).
@@ -26,11 +44,18 @@
  */
 #define CLOCK_DATE_CAPTION_VALUE_GAP_PX 10
 
+/** Cobra logo width as % of the top time-strip rule (`rule_visible_w`). */
+#define CLOCK_COBRA_IMG_WIDTH_PCT_OF_RULE 64
+
 /** Bottom dial credit (D-DIN Condensed Regular 15 px); gap above lower cardinal tick. */
 #define CLOCK_CREDIT_LINE_SPACE_PX      3 /* extra Y gap between title line and "2026" */
 #define CLOCK_CREDIT_GAP_ABOVE_TICK 8
 #define CLOCK_CREDIT_TICK_TOP_PX \
     ((lv_coord_t)((GAUGE_PIXEL_SIZE) / 2 + (GAUGE_RING_RADIUS) - (GAUGE_TICK_LENGTH)))
+
+/** Root Y of bottom edge of 12 o'clock tick (matches `gauge_bg_lvgl.c` canvas geometry). */
+#define CLOCK_UPPER_TICK_BOTTOM_Y \
+    ((lv_coord_t)((GAUGE_PIXEL_SIZE) / 2 - (GAUGE_RING_RADIUS) + (GAUGE_TICK_LENGTH)))
 
 /** LVGL text letter-space (px) for clock labels — keep in sync with `lv_txt_get_size` below. */
 #define CLOCK_TIME_LETTER_SPACE         5
@@ -52,23 +77,63 @@ static lv_coord_t clock_max_time_row_width(void)
     return tw + (lv_coord_t)CLOCK_TIME_PAD_COLUMN + asz;
 }
 
-/** Max width of HH:MM for 24h strip rules (no AM/PM column). */
-static lv_coord_t clock_max_time_row_width_24h(void)
-{
-    const lv_coord_t ls_time = (lv_coord_t)CLOCK_TIME_LETTER_SPACE;
-    lv_point_t sz_2359, sz_0959, sz_0000;
-    lv_txt_get_size(&sz_2359, "23:59", &font_ddin_115, ls_time, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
-    lv_txt_get_size(&sz_0959, "09:59", &font_ddin_115, ls_time, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
-    lv_txt_get_size(&sz_0000, "00:00", &font_ddin_115, ls_time, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
-    return LV_MAX(LV_MAX(sz_2359.x, sz_0959.x), sz_0000.x);
-}
-
 static lv_obj_t  *s_time_lbl;
 static lv_obj_t  *s_ampm_lbl;
 static lv_obj_t  *s_day_val_lbl;
 static lv_obj_t  *s_date_val_lbl;
 static lv_timer_t *s_clock_timer;
-static bool s_clock_is_24h;
+static bool        s_clock_is_24h;
+static uint8_t    *s_cobra_text_pixels;
+static lv_img_dsc_t s_cobra_text_dsc;
+
+static void clock_cobra_text_release(void)
+{
+    if (s_cobra_text_pixels != NULL) {
+        heap_caps_free(s_cobra_text_pixels);
+        s_cobra_text_pixels = NULL;
+    }
+    lv_memset_00(&s_cobra_text_dsc, sizeof(s_cobra_text_dsc));
+}
+
+/** Load `storage/Logos/Cobra_text.bin` (LVGL converter: 4-byte header + RGB565). */
+static bool clock_cobra_text_load(void)
+{
+    clock_cobra_text_release();
+
+    if (!storage_file_exists(k_cobra_clock_logo_storage)) {
+        return false;
+    }
+
+    size_t file_size = 0;
+    if (storage_get_file_size(k_cobra_clock_logo_storage, &file_size) != ESP_OK ||
+        file_size < COBRA_TEXT_BIN_MIN_BYTES) {
+        return false;
+    }
+
+    uint8_t *buf = (uint8_t *)heap_caps_malloc(file_size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (buf == NULL) {
+        buf = (uint8_t *)malloc(file_size);
+    }
+    if (buf == NULL) {
+        return false;
+    }
+
+    size_t bytes_read = 0;
+    if (storage_read_file(k_cobra_clock_logo_storage, buf, file_size, &bytes_read) != ESP_OK ||
+        bytes_read < COBRA_TEXT_BIN_MIN_BYTES) {
+        heap_caps_free(buf);
+        return false;
+    }
+
+    s_cobra_text_pixels = buf;
+    s_cobra_text_dsc.header.cf          = LV_IMG_CF_TRUE_COLOR;
+    s_cobra_text_dsc.header.always_zero = 0;
+    s_cobra_text_dsc.header.w           = COBRA_TEXT_IMG_W;
+    s_cobra_text_dsc.header.h           = COBRA_TEXT_IMG_H;
+    s_cobra_text_dsc.data_size          = (uint32_t)COBRA_TEXT_IMG_BYTES;
+    s_cobra_text_dsc.data               = buf + COBRA_TEXT_IMG_HDR_BYTES;
+    return true;
+}
 
 static const char *const MONTHS_3[12] = {
     "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
@@ -161,6 +226,7 @@ static void clock_refresh(lv_timer_t *t)
             s_clock_timer = NULL;
         }
         clock_clear_handles();
+        clock_cobra_text_release();
         return;
     }
 
@@ -214,6 +280,7 @@ esp_err_t page_clock_render(uint8_t subpage_index, lv_obj_t *root)
         s_clock_timer = NULL;
     }
     clock_clear_handles();
+    clock_cobra_text_release();
 
     lv_obj_t *gauge = create_gauge_background(root);
     if (gauge != NULL) {
@@ -225,8 +292,8 @@ esp_err_t page_clock_render(uint8_t subpage_index, lv_obj_t *root)
     lv_obj_set_style_bg_opa(root, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_set_layout(root, 0); /* no flex/grid on screen — avoids stretched gaps between widgets */
 
-    const lv_coord_t rule_w         = s_clock_is_24h ? clock_max_time_row_width_24h()
-                                                     : clock_max_time_row_width();
+    /* Fixed rule length: always size for 12h row (HH:MM + AM/PM), even in 24h mode. */
+    const lv_coord_t rule_w         = clock_max_time_row_width();
     const lv_coord_t rule_visible_w = (lv_coord_t)((int32_t)rule_w * 90 / 100); /* 90% of rule width */
 
     /*
@@ -244,7 +311,7 @@ esp_err_t page_clock_render(uint8_t subpage_index, lv_obj_t *root)
                           LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_row(time_strip, CLOCK_TIME_BAND_PAD_ROW, LV_PART_MAIN);
 
-    (void)white_rule_create(time_strip, rule_visible_w);
+    lv_obj_t *top_rule = white_rule_create(time_strip, rule_visible_w);
 
     /* Flex row: HH:MM and AM share the row's bottom edge (label bbox bottom = baseline+descent). */
     lv_obj_t *time_row = lv_obj_create(time_strip);
@@ -310,6 +377,59 @@ esp_err_t page_clock_render(uint8_t subpage_index, lv_obj_t *root)
         lv_coord_t ch = lv_obj_get_height(credit_lbl);
         lv_coord_t cy  = CLOCK_CREDIT_TICK_TOP_PX - (lv_coord_t)CLOCK_CREDIT_GAP_ABOVE_TICK - ch;
         lv_obj_set_pos(credit_lbl, 0, cy);
+    }
+
+    if (!storage_file_exists(k_cobra_clock_logo_storage)) {
+        ESP_LOGW(PAGE_CLOCK_LOG_TAG,
+                 "Clock logo missing on SPIFFS: %s (flash userdata partition, e.g. full `idf.py flash`)",
+                 k_cobra_clock_logo_storage);
+    } else if (!clock_cobra_text_load()) {
+        ESP_LOGW(PAGE_CLOCK_LOG_TAG, "Failed to load %s from SPIFFS", k_cobra_clock_logo_storage);
+    } else {
+        lv_obj_t *logo = lv_img_create(root);
+        if (logo != NULL) {
+            lv_obj_set_style_opa(logo, LV_OPA_COVER, 0);
+            lv_obj_set_style_clip_corner(logo, false, 0);
+            lv_obj_add_flag(logo, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+            lv_img_set_src(logo, &s_cobra_text_dsc);
+            lv_img_set_pivot(logo, (lv_coord_t)(COBRA_TEXT_IMG_W / 2),
+                             (lv_coord_t)(COBRA_TEXT_IMG_H / 2));
+
+            const lv_coord_t cobra_target_w = (lv_coord_t)((int32_t)rule_visible_w *
+                                                           CLOCK_COBRA_IMG_WIDTH_PCT_OF_RULE /
+                                                           100);
+            uint16_t cobra_zoom =
+                (uint16_t)((uint32_t)cobra_target_w * 256U / (uint32_t)COBRA_TEXT_IMG_W);
+            if (cobra_zoom < 1U) {
+                cobra_zoom = 1U;
+            }
+            lv_img_set_zoom(logo, cobra_zoom);
+
+            lv_obj_update_layout(root);
+            lv_obj_update_layout(logo);
+
+            lv_coord_t y_rule_top = lv_obj_get_y(time_strip) + lv_obj_get_y(top_rule);
+            lv_coord_t y_mid      = (CLOCK_UPPER_TICK_BOTTOM_Y + y_rule_top) / 2;
+
+            lv_coord_t iw = lv_obj_get_width(logo);
+            lv_coord_t ih = lv_obj_get_height(logo);
+            if (iw <= 0) {
+                iw = (lv_coord_t)((int32_t)COBRA_TEXT_IMG_W * (int32_t)cobra_zoom / 256);
+            }
+            if (ih <= 0) {
+                ih = (lv_coord_t)((int32_t)COBRA_TEXT_IMG_H * (int32_t)cobra_zoom / 256);
+            }
+            lv_coord_t y_top  = y_mid - ih / 2;
+            lv_coord_t x_left = (GAUGE_PIXEL_SIZE - iw) / 2;
+            lv_obj_set_pos(logo, x_left, y_top);
+            lv_obj_move_foreground(logo);
+
+            lv_obj_update_layout(logo);
+            ESP_LOGI(PAGE_CLOCK_LOG_TAG,
+                     "clock Cobra text: rule_w=%d target_w=%d zoom=%u placed y_mid=%d x=%d y=%d w=%d h=%d",
+                     (int)rule_visible_w, (int)cobra_target_w, (unsigned)cobra_zoom, (int)y_mid,
+                     (int)lv_obj_get_x(logo), (int)lv_obj_get_y(logo), (int)iw, (int)ih);
+        }
     }
 
     clock_refresh(NULL);

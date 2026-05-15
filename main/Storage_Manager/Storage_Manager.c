@@ -3,6 +3,7 @@
 #include "esp_spiffs.h"
 #include "esp_log.h"
 #include <dirent.h>
+#include <stdio.h>
 #include <sys/stat.h>
 #include <string.h>
 #include <stdbool.h>
@@ -19,7 +20,8 @@ esp_err_t storage_init(void)
     esp_vfs_spiffs_conf_t conf = {
         .base_path = "/storage",
         .partition_label = STORAGE_PARTITION_LABEL,
-        .max_files = 5,
+        /* LVGL PNG decode + SPIFFS can briefly need several concurrent FILE handles. */
+        .max_files = 16,
         .format_if_mount_failed = false
     };
 
@@ -187,6 +189,68 @@ esp_err_t storage_list_files(const char *base_path, int max_files, char files[][
 
     closedir(dir);
     return ESP_OK;
+}
+
+#define STORAGE_LOG_MAX_FILES  512
+#define STORAGE_LOG_MAX_DEPTH  12
+#define STORAGE_LOG_PATH_MAX   192
+
+static void storage_walk_log_dir(const char *abs_dir, int depth, int *file_count)
+{
+    if (!spiffs_mounted || depth > STORAGE_LOG_MAX_DEPTH || *file_count >= STORAGE_LOG_MAX_FILES) {
+        return;
+    }
+
+    DIR *dir = opendir(abs_dir);
+    if (dir == NULL) {
+        return;
+    }
+
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL && *file_count < STORAGE_LOG_MAX_FILES) {
+        if (entry->d_name[0] == '.' &&
+            (entry->d_name[1] == '\0' ||
+             (entry->d_name[1] == '.' && entry->d_name[2] == '\0'))) {
+            continue;
+        }
+
+        char path[STORAGE_LOG_PATH_MAX];
+        int plen = snprintf(path, sizeof(path), "%s/%s", abs_dir, entry->d_name);
+        if (plen <= 0 || plen >= (int)sizeof(path)) {
+            continue;
+        }
+
+        struct stat st;
+        if (stat(path, &st) != 0) {
+            continue;
+        }
+
+        if (S_ISDIR(st.st_mode)) {
+            storage_walk_log_dir(path, depth + 1, file_count);
+        } else if (S_ISREG(st.st_mode)) {
+            ESP_LOGI(TAG, "  %s", path);
+            (*file_count)++;
+        }
+    }
+
+    closedir(dir);
+}
+
+void storage_log_all_files(void)
+{
+    if (!spiffs_mounted) {
+        ESP_LOGW(TAG, "SPIFFS not mounted; skip file list");
+        return;
+    }
+
+    int n = 0;
+    ESP_LOGI(TAG, "SPIFFS userdata files under /storage:");
+    storage_walk_log_dir("/storage", 0, &n);
+    if (n == 0) {
+        ESP_LOGI(TAG, "  (no regular files)");
+    } else {
+        ESP_LOGI(TAG, "SPIFFS file count: %d", n);
+    }
 }
 
 esp_err_t storage_get_info(size_t *total_bytes, size_t *used_bytes)

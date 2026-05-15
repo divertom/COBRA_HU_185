@@ -75,6 +75,13 @@ esp_err_t storage_delete_file(const char *path);
 esp_err_t storage_list_files(const char *base_path, int max_files, char files[][64], int *file_count);
 
 /**
+ * @brief Log every regular file under /storage (recursive) at INFO — for serial monitor during boot.
+ *
+ * Each line is one full path, e.g. `/storage/Logos/Cobra_text_blk_BG.png`.
+ */
+void storage_log_all_files(void);
+
+/**
  * @brief Get total and used space in SPIFFS
  * 
  * @param total_bytes Pointer to store total bytes

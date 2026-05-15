@@ -48,6 +48,8 @@ void app_main(void)
     ESP_LOGI("main", "Initializing SPIFFS storage");
     if (storage_init() != ESP_OK) {
         ESP_LOGE("main", "Failed to initialize SPIFFS");
+    } else {
+        storage_log_all_files();
     }
 
     Driver_Init();
