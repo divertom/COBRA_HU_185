@@ -123,25 +123,6 @@ void Lvgl_Example1(void){
 
   lv_obj_set_style_text_font(lv_scr_act(), font_normal, 0);
 
-  if(disp_size == DISP_LARGE) {
-    lv_obj_t * tab_btns = lv_tabview_get_tab_btns(tv);
-    lv_obj_set_style_pad_left(tab_btns, LV_HOR_RES / 2, 0);
-    lv_obj_t * logo = lv_img_create(tab_btns);
-    LV_IMG_DECLARE(img_lvgl_logo);
-    lv_img_set_src(logo, &img_lvgl_logo);
-    lv_obj_align(logo, LV_ALIGN_LEFT_MID, -LV_HOR_RES / 2 + 25, 0);
-
-    lv_obj_t * label = lv_label_create(tab_btns);
-    lv_obj_add_style(label, &style_title, 0);
-    lv_label_set_text(label, "LVGL v8");
-    lv_obj_align_to(label, logo, LV_ALIGN_OUT_RIGHT_TOP, 10, 0);
-
-    label = lv_label_create(tab_btns);
-    lv_label_set_text(label, "Widgets demo");
-    lv_obj_add_style(label, &style_text_muted, 0);
-    lv_obj_align_to(label, logo, LV_ALIGN_OUT_RIGHT_BOTTOM, 10, 0);
-  }
-
   t0 = lv_tabview_add_tab(tv, "       ");
   t1 = lv_tabview_add_tab(tv, "Onboard");
   t2 = lv_tabview_add_tab(tv, "       ");

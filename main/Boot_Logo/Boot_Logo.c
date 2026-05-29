@@ -1,313 +1,527 @@
 #include "Boot_Logo.h"
+
 #include "ST77916.h"
+
 #include "Storage_Manager.h"
-#include "esp_log.h"
+
 #include "esp_heap_caps.h"
+
+#include "esp_log.h"
+
 #include "lvgl.h"
+
 #include "freertos/FreeRTOS.h"
+
 #include "freertos/task.h"
-#include <dirent.h>
-#include <sys/stat.h>
-#include <string.h>
-#include <stdio.h>
-#include <stdint.h>
+
+
+
 #include <stdbool.h>
+
+#include <stdint.h>
+
+#include <stdio.h>
+
+#include <string.h>
+
+
 
 static const char *TAG = "Boot_Logo";
 
-// LVGL file system driver for SPIFFS using POSIX
+
+
+static const char k_boot_logo_spiffs_path[] = "/boot/cobra_boot.bin";
+
+static const char k_boot_logo_lvgl_path[]  = "A:/boot/cobra_boot.bin";
+
+
+
+static uint8_t *s_boot_logo_ram;
+
+static lv_img_dsc_t s_boot_logo_dsc;
+
+static bool s_boot_logo_ram_ready;
+
+
+
 static void *fs_open(lv_fs_drv_t *drv, const char *path, lv_fs_mode_t mode)
+
 {
-    // LVGL passes path like "/Logos/file.png" (drive letter already stripped)
-    // We need to prepend "/storage" but avoid double slashes
-    // Skip any leading slashes from the path
+
+    (void)drv;
+
     const char *path_clean = path;
+
     while (*path_clean == '/') {
-        path_clean++;  // Skip all leading slashes
+
+        path_clean++;
+
     }
-    
+
+
+
     char full_path[256];
-    snprintf(full_path, sizeof(full_path), "/storage/%s", path_clean);
-    
-    const char *mode_str = "r";
+
+    (void)snprintf(full_path, sizeof(full_path), "/storage/%s", path_clean);
+
+
+
+    const char *mode_str = "rb";
+
     if (mode == LV_FS_MODE_WR) {
-        mode_str = "w";
+
+        mode_str = "wb";
+
     } else if (mode == (LV_FS_MODE_WR | LV_FS_MODE_RD)) {
-        mode_str = "r+";
+
+        mode_str = "r+b";
+
     }
-    
+
+
+
     FILE *f = fopen(full_path, mode_str);
+
     if (f == NULL) {
-        ESP_LOGE(TAG, "Failed to open file: %s (mode: %s) - tried LVGL path: %s", full_path, mode_str, path);
+
+        ESP_LOGE(TAG, "Failed to open %s", full_path);
+
     }
-    // Don't log successful opens - PNG decoder opens file many times during decoding
+
     return (void *)f;
+
 }
+
+
 
 static lv_fs_res_t fs_close(lv_fs_drv_t *drv, void *file_p)
+
 {
-    FILE *f = (FILE *)file_p;
-    fclose(f);
+
+    (void)drv;
+
+    fclose((FILE *)file_p);
+
     return LV_FS_RES_OK;
+
 }
+
+
 
 static lv_fs_res_t fs_read(lv_fs_drv_t *drv, void *file_p, void *buf, uint32_t btr, uint32_t *br)
+
 {
+
+    (void)drv;
+
     FILE *f = (FILE *)file_p;
+
     if (f == NULL) {
+
         *br = 0;
+
         return LV_FS_RES_INV_PARAM;
+
     }
+
     *br = fread(buf, 1, btr, f);
+
     if (*br == 0 && ferror(f)) {
+
         return LV_FS_RES_UNKNOWN;
+
     }
+
     return LV_FS_RES_OK;
+
 }
+
+
 
 static lv_fs_res_t fs_seek(lv_fs_drv_t *drv, void *file_p, uint32_t pos, lv_fs_whence_t whence)
+
 {
+
+    (void)drv;
+
     FILE *f = (FILE *)file_p;
+
     int w = SEEK_SET;
-    if (whence == LV_FS_SEEK_CUR) w = SEEK_CUR;
-    else if (whence == LV_FS_SEEK_END) w = SEEK_END;
+
+    if (whence == LV_FS_SEEK_CUR) {
+
+        w = SEEK_CUR;
+
+    } else if (whence == LV_FS_SEEK_END) {
+
+        w = SEEK_END;
+
+    }
+
     fseek(f, pos, w);
+
     return LV_FS_RES_OK;
+
 }
+
+
 
 static lv_fs_res_t fs_tell(lv_fs_drv_t *drv, void *file_p, uint32_t *pos_p)
+
 {
+
+    (void)drv;
+
     FILE *f = (FILE *)file_p;
-    *pos_p = ftell(f);
+
+    *pos_p = (uint32_t)ftell(f);
+
     return LV_FS_RES_OK;
+
 }
 
-static void lvgl_fs_register_drive_a(void)
+
+
+void lvgl_spiffs_assets_fs_register(void)
+
 {
+
+    static bool s_registered;
+
+    if (s_registered) {
+
+        return;
+
+    }
+
+
+
     static lv_fs_drv_t fs_drv;
+
     lv_fs_drv_init(&fs_drv);
 
-    fs_drv.letter = 'A';
+    fs_drv.letter     = 'A';
+
     fs_drv.cache_size = 0;
-    fs_drv.open_cb = fs_open;
-    fs_drv.close_cb = fs_close;
-    fs_drv.read_cb = fs_read;
-    fs_drv.seek_cb = fs_seek;
-    fs_drv.tell_cb = fs_tell;
+
+    fs_drv.open_cb    = fs_open;
+
+    fs_drv.close_cb   = fs_close;
+
+    fs_drv.read_cb    = fs_read;
+
+    fs_drv.seek_cb    = fs_seek;
+
+    fs_drv.tell_cb    = fs_tell;
 
     lv_fs_drv_register(&fs_drv);
-}
 
-void boot_logo_lvgl_fs_register(void)
-{
-    static bool s_registered;
-    if (s_registered) {
-        return;
-    }
-    lvgl_fs_register_drive_a();
+
+
     s_registered = true;
+
 }
 
-esp_err_t boot_logo_display(lv_obj_t *scr, bool startup_timing)
+
+
+bool lvgl_bin_read_header_from_spiffs(const char *spiffs_path, lv_img_header_t *header)
+
 {
-    boot_logo_lvgl_fs_register();
 
-    if (startup_timing) {
-        Set_Backlight(0);
+    uint8_t buf[4];
+
+    size_t bytes_read = 0;
+
+
+
+    if (spiffs_path == NULL || header == NULL) {
+
+        return false;
+
     }
 
-    lv_obj_set_style_bg_color(scr, lv_color_black(), LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, LV_PART_MAIN);
-    lv_obj_invalidate(scr);
 
-    if (startup_timing) {
-        for (int i = 0; i < 12; i++) {
-            lv_timer_handler();
-        }
-    } else {
-        for (int i = 0; i < 8; i++) {
-            lv_timer_handler();
-            vTaskDelay(pdMS_TO_TICKS(2));
-        }
+
+    lv_memset_00(header, sizeof(*header));
+
+    if (storage_read_file(spiffs_path, buf, sizeof(buf), &bytes_read) != ESP_OK ||
+
+        bytes_read < sizeof(buf)) {
+
+        return false;
+
     }
-    
-    // Find logo file - prefer raw RGB565 format, then PNG
-    
-    // Try to find logo file - prefer raw RGB565 format, then PNG
-    const char *logo_paths[] = {
-        "/Logos/Cobra_Logo_WoB_3D_redtext_360.raw",  // Raw RGB565 format (preferred)
-        "/Logos/cobra_logo.raw",
-        "/Logos/logo.raw",
-        "/Logos/Cobra_Logo_WoB_3D_redtext_360.png",  // PNG format (fallback)
-        "/Logos/cobra_logo.png",
-        "/Logos/logo.png",
-        NULL
-    };
-    
-    const char *logo_path = NULL;
-    bool is_raw_format = false;
-    for (int i = 0; logo_paths[i] != NULL; i++) {
-        if (storage_file_exists(logo_paths[i])) {
-            logo_path = logo_paths[i];
-            is_raw_format = (strstr(logo_path, ".raw") != NULL);
-            break;
-        }
+
+
+
+    memcpy(header, buf, sizeof(*header));
+
+    return (header->cf == LV_IMG_CF_TRUE_COLOR || header->cf == LV_IMG_CF_TRUE_COLOR_ALPHA) &&
+
+           header->w > 0 && header->h > 0;
+
+}
+
+
+
+esp_err_t lvgl_bin_load_to_dsc_from_spiffs(const char *spiffs_path, lv_img_dsc_t *dsc, uint8_t **ram_out)
+
+{
+
+    size_t file_size = 0;
+
+    size_t bytes_read = 0;
+
+
+
+    if (spiffs_path == NULL || dsc == NULL || ram_out == NULL) {
+
+        return ESP_ERR_INVALID_ARG;
+
     }
-    
-    if (logo_path == NULL) {
-        ESP_LOGW(TAG, "Logo file not found in SPIFFS");
+
+
+
+    *ram_out = NULL;
+
+    lv_memset_00(dsc, sizeof(*dsc));
+
+
+
+    if (storage_get_file_size(spiffs_path, &file_size) != ESP_OK || file_size <= sizeof(lv_img_header_t)) {
+
         return ESP_ERR_NOT_FOUND;
+
     }
-    
-    // Create image object
-    lv_obj_t *img = lv_img_create(scr);
-    if (img == NULL) {
-        ESP_LOGE(TAG, "Failed to create image object");
+
+
+
+    /* Large assets must stay in PSRAM — do not fall back to internal heap (breaks BLE/WiFi). */
+
+    uint8_t *ram = (uint8_t *)heap_caps_malloc(file_size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+
+    if (ram == NULL) {
+
+        ESP_LOGE(TAG, "PSRAM alloc failed for %s (%u bytes)", spiffs_path, (unsigned)file_size);
+
+        return ESP_ERR_NO_MEM;
+
+    }
+
+
+
+    if (storage_read_file(spiffs_path, ram, file_size, &bytes_read) != ESP_OK ||
+
+        bytes_read != file_size) {
+
+        heap_caps_free(ram);
+
         return ESP_FAIL;
-    }
-    
-    // Set image properties before setting source
-    lv_obj_set_style_opa(img, LV_OPA_COVER, 0);
-    lv_obj_clear_flag(img, LV_OBJ_FLAG_HIDDEN);
-    // Ensure image object doesn't clip content
-    lv_obj_set_style_clip_corner(img, false, 0);
-    lv_obj_add_flag(img, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
-    
-    // Declare lvgl_path outside if/else for use in PNG info retrieval
-    char lvgl_path[256] = {0};
-    
-    if (is_raw_format) {
-        // Load raw RGB565 file directly
-        char file_path[256];
-        snprintf(file_path, sizeof(file_path), "/storage%s", logo_path);
-        FILE *raw_file = fopen(file_path, "rb");
-        if (raw_file == NULL) {
-            ESP_LOGE(TAG, "Cannot open raw file: %s", file_path);
-            lv_obj_del(img);
-            return ESP_FAIL;
-        }
-        
-        // Get file size
-        fseek(raw_file, 0, SEEK_END);
-        long file_size = ftell(raw_file);
-        fseek(raw_file, 0, SEEK_SET);
-        
-        // Calculate dimensions from file size (assuming RGB565 = 2 bytes per pixel)
-        int expected_width = 360;
-        int expected_height = file_size / (expected_width * 2);
-        if (expected_height <= 0 || expected_height * expected_width * 2 != file_size) {
-            ESP_LOGE(TAG, "Invalid raw file size: %ld bytes", file_size);
-            fclose(raw_file);
-            lv_obj_del(img);
-            return ESP_FAIL;
-        }
-        
-        // Allocate memory for raw RGB565 data
-        uint8_t *raw_data = (uint8_t *)heap_caps_malloc(file_size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-        if (raw_data == NULL) {
-            ESP_LOGE(TAG, "Failed to allocate memory for raw data");
-            fclose(raw_file);
-            lv_obj_del(img);
-            return ESP_ERR_NO_MEM;
-        }
-        
-        // Read file into memory
-        size_t bytes_read = fread(raw_data, 1, file_size, raw_file);
-        fclose(raw_file);
-        
-        if (bytes_read != file_size) {
-            ESP_LOGE(TAG, "Failed to read complete file: read %zu of %ld bytes", bytes_read, file_size);
-            free(raw_data);
-            lv_obj_del(img);
-            return ESP_FAIL;
-        }
-        
-        // Create LVGL image descriptor for raw RGB565 (same as test image)
-        static lv_img_dsc_t raw_img_dsc;
-        raw_img_dsc.header.always_zero = 0;
-        raw_img_dsc.header.w = expected_width;
-        raw_img_dsc.header.h = expected_height;
-        raw_img_dsc.header.cf = LV_IMG_CF_TRUE_COLOR;
-        raw_img_dsc.data_size = file_size;
-        raw_img_dsc.data = raw_data;
-        
-        lv_img_set_src(img, &raw_img_dsc);
-    } else {
-        // Use file system path with LVGL file system driver (drive 'A' maps to /storage)
-        snprintf(lvgl_path, sizeof(lvgl_path), "A:%s", logo_path);
-        lv_img_set_src(img, lvgl_path);
-        
-        // Handle PNG alpha channel if present
-        lv_img_header_t header;
-        if (lv_img_decoder_get_info(lvgl_path, &header) == LV_RES_OK) {
-            if (header.cf == LV_IMG_CF_TRUE_COLOR_ALPHA) {
-                /* White bg before backlight caused a bright flash; keep black during cold boot. */
-                lv_obj_set_style_bg_color(scr,
-                                          startup_timing ? lv_color_black() : lv_color_white(),
-                                          LV_PART_MAIN);
-                lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, LV_PART_MAIN);
-                lv_obj_set_style_img_opa(img, LV_OPA_COVER, 0);
-            }
-        }
-    }
-    
-    if (startup_timing) {
-        /* Shorter waits than legacy (~3.5s); decode still needs some LVGL ticks. */
-        for (int i = 0; i < 18; i++) {
-            lv_timer_handler();
-            vTaskDelay(pdMS_TO_TICKS(8));
-        }
-    } else {
-        for (int i = 0; i < 40; i++) {
-            lv_timer_handler();
-            vTaskDelay(pdMS_TO_TICKS(3));
-        }
+
     }
 
-    lv_obj_align(img, LV_ALIGN_CENTER, 0, 0);
-    lv_obj_invalidate(img);
-    lv_obj_invalidate(scr);
 
-    if (startup_timing) {
-        for (int i = 0; i < 24; i++) {
-            lv_timer_handler();
-            vTaskDelay(pdMS_TO_TICKS(5));
-        }
-    } else {
-        for (int i = 0; i < 24; i++) {
-            lv_timer_handler();
-            vTaskDelay(pdMS_TO_TICKS(3));
-        }
+
+    memcpy(&dsc->header, ram, sizeof(lv_img_header_t));
+
+    dsc->data      = ram + sizeof(lv_img_header_t);
+
+    dsc->data_size = (uint32_t)(file_size - sizeof(lv_img_header_t));
+
+
+
+    if ((dsc->header.cf != LV_IMG_CF_TRUE_COLOR && dsc->header.cf != LV_IMG_CF_TRUE_COLOR_ALPHA) ||
+
+        dsc->header.w <= 0 || dsc->header.h <= 0) {
+
+        heap_caps_free(ram);
+
+        lv_memset_00(dsc, sizeof(*dsc));
+
+        return ESP_ERR_INVALID_VERSION;
+
     }
 
-    lv_obj_update_layout(scr);
-    lv_obj_update_layout(img);
 
-    lv_coord_t w = lv_obj_get_width(img);
-    lv_coord_t h = lv_obj_get_height(img);
-    if (w <= 0 || h <= 0) {
-        const void *src = lv_img_get_src(img);
-        if (src != NULL && lv_img_src_get_type(src) == LV_IMG_SRC_VARIABLE) {
-            const lv_img_dsc_t *dsc = src;
-            if (dsc->header.w > 0 && dsc->header.h > 0) {
-                w = (lv_coord_t)dsc->header.w;
-                h = (lv_coord_t)dsc->header.h;
-            }
-        }
-    }
-    if (w <= 0 || h <= 0) {
-        ESP_LOGW(TAG, "Boot logo image dimensions pending layout; continuing anyway");
-    }
 
-    /* lv_refr_now + backlight: cold boot uses in-place active screen; carousel uses
-     * UI_Navigation after lv_scr_load(). */
+    *ram_out = ram;
 
     return ESP_OK;
+
 }
 
-void boot_logo_enable_backlight(uint8_t brightness)
+
+
+static esp_err_t boot_logo_ensure_ram(void)
+
 {
-    Set_Backlight(brightness);
-    vTaskDelay(pdMS_TO_TICKS(50));
+
+    if (s_boot_logo_ram_ready) {
+
+        return ESP_OK;
+
+    }
+
+
+
+    esp_err_t err =
+
+        lvgl_bin_load_to_dsc_from_spiffs(k_boot_logo_spiffs_path, &s_boot_logo_dsc, &s_boot_logo_ram);
+
+    if (err == ESP_OK) {
+
+        s_boot_logo_ram_ready = true;
+
+        ESP_LOGI(TAG, "Boot logo cached in PSRAM (%u bytes)", (unsigned)s_boot_logo_dsc.data_size);
+
+    }
+
+    return err;
+
 }
+
+
+
+void boot_logo_release_ram_cache(void)
+
+{
+
+    if (s_boot_logo_ram != NULL) {
+
+        heap_caps_free(s_boot_logo_ram);
+
+        s_boot_logo_ram = NULL;
+
+    }
+
+    lv_memset_00(&s_boot_logo_dsc, sizeof(s_boot_logo_dsc));
+
+    s_boot_logo_ram_ready = false;
+
+    ESP_LOGI(TAG, "Boot logo PSRAM cache released");
+
+}
+
+
+
+esp_err_t boot_logo_display(lv_obj_t *scr, bool startup_timing)
+
+{
+
+    if (startup_timing) {
+
+        Set_Backlight(0);
+
+    }
+
+
+
+    lv_obj_set_style_bg_color(scr, lv_color_black(), LV_PART_MAIN);
+
+    lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, LV_PART_MAIN);
+
+
+
+    if (!storage_file_exists(k_boot_logo_spiffs_path)) {
+
+        ESP_LOGW(TAG, "Boot logo missing on SPIFFS: %s", k_boot_logo_spiffs_path);
+
+        return ESP_ERR_NOT_FOUND;
+
+    }
+
+
+
+    lv_obj_t *img = lv_img_create(scr);
+
+    if (img == NULL) {
+
+        return ESP_FAIL;
+
+    }
+
+
+
+    lv_obj_set_style_opa(img, LV_OPA_COVER, 0);
+
+    lv_obj_clear_flag(img, LV_OBJ_FLAG_HIDDEN);
+
+    lv_obj_add_flag(img, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+
+
+
+    const void *src = NULL;
+
+    lv_img_header_t header;
+
+    lv_memset_00(&header, sizeof(header));
+
+
+
+    if (boot_logo_ensure_ram() == ESP_OK) {
+
+        src    = &s_boot_logo_dsc;
+
+        header = s_boot_logo_dsc.header;
+
+    } else if (lv_img_decoder_get_info(k_boot_logo_lvgl_path, &header) == LV_RES_OK) {
+
+        src = k_boot_logo_lvgl_path;
+
+    } else if (lvgl_bin_read_header_from_spiffs(k_boot_logo_spiffs_path, &header)) {
+
+        src = k_boot_logo_lvgl_path;
+
+    } else {
+
+        lv_obj_del(img);
+
+        return ESP_ERR_NOT_FOUND;
+
+    }
+
+
+
+    lv_img_set_src(img, src);
+
+    lv_obj_align(img, LV_ALIGN_CENTER, 0, 0);
+
+
+
+    if (header.cf == LV_IMG_CF_TRUE_COLOR_ALPHA) {
+
+        lv_obj_set_style_bg_color(scr,
+
+                                  startup_timing ? lv_color_black() : lv_color_white(),
+
+                                  LV_PART_MAIN);
+
+        lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, LV_PART_MAIN);
+
+    }
+
+
+
+    ESP_LOGI(TAG, "Boot logo %ux%u cf=%u (%s)",
+
+             (unsigned)header.w, (unsigned)header.h, (unsigned)header.cf,
+
+             (src == &s_boot_logo_dsc) ? "PSRAM" : "file");
+
+    return ESP_OK;
+
+}
+
+
+
+void boot_logo_enable_backlight(uint8_t brightness)
+
+{
+
+    Set_Backlight(brightness);
+
+    vTaskDelay(pdMS_TO_TICKS(50));
+
+}
+
 

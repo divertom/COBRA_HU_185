@@ -72,23 +72,17 @@ void app_main(void)
         boot_logo_enable_backlight(70);
     }
 
-    // Start WiFi/BLE tasks (including Smartremote BLE HID receive) and hook UI navigation handlers.
     Wireless_RegisterRemoteEventHandler(ux_navigation_queue_remote_event);
-    Wireless_Init();
+    /* Wireless_Init() runs after splash (frees ~250 KiB PSRAM + internal heap for BLE). */
 
-    for (int i = 0; i < 500; i++) {
-        vTaskDelay(pdMS_TO_TICKS(10));
-        lv_timer_handler();
-    }
-
-    if (ux_navigation_show_restored_page() != ESP_OK) {
-        ESP_LOGW("main", "Failed to show restored page");
-    }
+    /* Boot splash: hand off via LVGL timer (non-blocking). */
+    ux_navigation_schedule_restored_page(5000);
+    ESP_LOGI("main", "Main loop running (post-boot handoff scheduled)");
 
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(10));
-        ux_navigation_process_events();
         lv_timer_handler();
+        ux_navigation_process_events();
     }
 }
 

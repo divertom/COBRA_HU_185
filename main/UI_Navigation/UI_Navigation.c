@@ -13,7 +13,8 @@
 #include "Page_Status.h"
 #include "esp_log.h"
 #include "lvgl.h"
-#include "ST77916.h"
+#include "Boot_Logo_Api.h"
+#include "Wireless.h"
 
 #define NAV_STATE_FILE_PATH "/ui_nav_state.bin"
 
@@ -64,6 +65,16 @@ static bool s_initialized;
 static uint8_t s_last_rendered_page_index = 0xFFU;
 
 static bool s_boot_logo_use_startup_timing;
+/** False until boot splash is replaced (main loop may process HID queue). */
+static bool s_ui_ready;
+static lv_timer_t *s_post_boot_timer;
+static bool s_wireless_started;
+
+/** Boot logo index: skipped when restoring persisted UI state (cold boot uses show_boot_logo). */
+static bool nav_page_is_boot_logo(uint8_t page_index)
+{
+    return s_pages[page_index].page_id == UX_PAGE_BOOT_LOGO;
+}
 
 static const char *nav_event_to_string(bt_remote_event_t event)
 {
@@ -162,6 +173,9 @@ static void nav_restore_or_default(void)
         s_current_page_index = v2.page_index;
         (void)memcpy(s_last_subpage, v2.last_subpage, sizeof(s_last_subpage));
         nav_clamp_all_last_subpages();
+        if (nav_page_is_boot_logo(s_current_page_index)) {
+            s_current_page_index = (uint8_t)UX_PAGE_CLOCK;
+        }
         s_current_subpage_index = s_last_subpage[s_current_page_index];
         return;
     }
@@ -170,6 +184,9 @@ static void nav_restore_or_default(void)
         bytes_read == sizeof(leg) && leg.magic == NAV_STATE_MAGIC_LEGACY &&
         leg.page_index < (uint8_t)UX_PAGE_COUNT) {
         s_current_page_index = leg.page_index;
+        if (nav_page_is_boot_logo(s_current_page_index)) {
+            s_current_page_index = (uint8_t)UX_PAGE_CLOCK;
+        }
         s_current_subpage_index = nav_clamp_subpage(s_current_page_index, leg.subpage_index);
         s_last_subpage[s_current_page_index] = s_current_subpage_index;
         return;
@@ -201,13 +218,23 @@ static esp_err_t nav_render_current_page(void)
             return ret;
         }
         lv_refr_now(lv_disp_get_default());
-        Set_Backlight(70);
+        boot_logo_enable_backlight(70);
         s_last_rendered_page_index = s_current_page_index;
         nav_log_state("Render");
         return ESP_OK;
     }
 
+    const bool leaving_boot_splash =
+        (s_last_rendered_page_index == (uint8_t)UX_PAGE_BOOT_LOGO);
+
     lv_obj_t *old_scr = lv_scr_act();
+    if (leaving_boot_splash) {
+        lv_img_cache_invalidate_src("A:/boot/cobra_boot.bin");
+        lv_img_cache_invalidate_src(NULL);
+    } else {
+        lv_img_cache_invalidate_src(NULL);
+    }
+
     lv_obj_t *new_scr = lv_obj_create(NULL);
     if (new_scr == NULL) {
         ESP_LOGE(TAG, "Failed to allocate screen for page %s", s_pages[s_current_page_index].name);
@@ -216,6 +243,7 @@ static esp_err_t nav_render_current_page(void)
     lv_obj_set_style_bg_color(new_scr, lv_color_black(), LV_PART_MAIN);
     lv_obj_set_style_bg_opa(new_scr, LV_OPA_COVER, LV_PART_MAIN);
 
+    ESP_LOGI(TAG, "Rendering %s on new screen", s_pages[s_current_page_index].name);
     esp_err_t ret =
         s_pages[s_current_page_index].render(s_current_subpage_index, new_scr);
     if (ret != ESP_OK) {
@@ -225,7 +253,12 @@ static esp_err_t nav_render_current_page(void)
     }
 
     lv_scr_load(new_scr);
-    lv_obj_del(old_scr);
+    /* Sync delete of a file-backed splash lv_img can block; defer teardown. */
+    if (leaving_boot_splash) {
+        lv_obj_del_async(old_scr);
+    } else {
+        lv_obj_del(old_scr);
+    }
     lv_refr_now(lv_disp_get_default());
 
     s_last_rendered_page_index = s_current_page_index;
@@ -237,14 +270,15 @@ static void nav_next_page(void)
 {
     s_last_subpage[s_current_page_index] = s_current_subpage_index;
 
-    s_current_page_index =
-        (uint8_t)((s_current_page_index + 1U) % (uint8_t)UX_PAGE_COUNT);
+    s_current_page_index = (uint8_t)((s_current_page_index + 1U) % (uint8_t)UX_PAGE_COUNT);
 
     s_current_subpage_index = nav_clamp_subpage(s_current_page_index,
                                                 s_last_subpage[s_current_page_index]);
     s_last_subpage[s_current_page_index] = s_current_subpage_index;
 
-    (void)nav_render_current_page();
+    if (nav_render_current_page() != ESP_OK) {
+        ESP_LOGE(TAG, "Page render failed after next");
+    }
     (void)nav_save_state();
 }
 
@@ -262,7 +296,9 @@ static void nav_prev_page(void)
                                                 s_last_subpage[s_current_page_index]);
     s_last_subpage[s_current_page_index] = s_current_subpage_index;
 
-    (void)nav_render_current_page();
+    if (nav_render_current_page() != ESP_OK) {
+        ESP_LOGE(TAG, "Page render failed after prev");
+    }
     (void)nav_save_state();
 }
 
@@ -274,7 +310,9 @@ static void nav_subpage_up(void)
     }
     s_current_subpage_index--;
     s_last_subpage[s_current_page_index] = s_current_subpage_index;
-    (void)nav_render_current_page();
+    if (nav_render_current_page() != ESP_OK) {
+        ESP_LOGE(TAG, "Page render failed after subpage up");
+    }
     (void)nav_save_state();
 }
 
@@ -287,7 +325,9 @@ static void nav_subpage_down(void)
     }
     s_current_subpage_index++;
     s_last_subpage[s_current_page_index] = s_current_subpage_index;
-    (void)nav_render_current_page();
+    if (nav_render_current_page() != ESP_OK) {
+        ESP_LOGE(TAG, "Page render failed after subpage down");
+    }
     (void)nav_save_state();
 }
 
@@ -303,6 +343,7 @@ esp_err_t ux_navigation_init(void)
     }
 
     nav_restore_or_default();
+    s_ui_ready = false;
     s_initialized = true;
     return ESP_OK;
 }
@@ -322,13 +363,55 @@ esp_err_t ux_navigation_show_boot_logo(void)
     return ret;
 }
 
+static void post_boot_timer_cb(lv_timer_t *timer)
+{
+    (void)timer;
+    ESP_LOGI(TAG, "Post-boot handoff");
+    boot_logo_release_ram_cache();
+    if (ux_navigation_show_restored_page() != ESP_OK) {
+        ESP_LOGE(TAG, "Post-boot handoff failed");
+    }
+    /* Clock UI first, then BT/WiFi (avoids heap + SPIFFS contention during first paint). */
+    if (!s_wireless_started) {
+        Wireless_Init();
+        s_wireless_started = true;
+    }
+    if (s_post_boot_timer != NULL) {
+        lv_timer_del(s_post_boot_timer);
+        s_post_boot_timer = NULL;
+    }
+}
+
+void ux_navigation_schedule_restored_page(uint32_t delay_ms)
+{
+    if (s_post_boot_timer != NULL) {
+        lv_timer_del(s_post_boot_timer);
+        s_post_boot_timer = NULL;
+    }
+    s_post_boot_timer = lv_timer_create(post_boot_timer_cb, delay_ms, NULL);
+    if (s_post_boot_timer != NULL) {
+        lv_timer_set_repeat_count(s_post_boot_timer, 1);
+    } else {
+        ESP_LOGE(TAG, "Failed to create post-boot timer");
+    }
+}
+
 esp_err_t ux_navigation_show_restored_page(void)
 {
     nav_restore_or_default();
+    if (nav_page_is_boot_logo(s_current_page_index)) {
+        s_current_page_index = (uint8_t)UX_PAGE_CLOCK;
+        s_current_subpage_index = s_last_subpage[s_current_page_index];
+    }
+
     esp_err_t ret = nav_render_current_page();
     if (ret == ESP_OK) {
         (void)nav_save_state();
+    } else {
+        ESP_LOGE(TAG, "Restored page render failed");
     }
+    /* Allow HID navigation even if first paint failed (unblocks main loop). */
+    s_ui_ready = true;
     return ret;
 }
 
@@ -351,7 +434,7 @@ void ux_navigation_queue_remote_event(bt_remote_event_t event)
 
 void ux_navigation_process_events(void)
 {
-    if (!s_initialized || s_event_queue == NULL) {
+    if (!s_initialized || !s_ui_ready || s_event_queue == NULL) {
         return;
     }
 

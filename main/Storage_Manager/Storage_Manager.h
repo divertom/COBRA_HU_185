@@ -20,7 +20,7 @@ esp_err_t storage_init(void);
 /**
  * @brief Read a file from SPIFFS
  * 
- * @param path File path (e.g., "/storage/images/logo.png")
+ * @param path File path (e.g., "/storage/images/widget.bin")
  * @param buffer Buffer to store file contents
  * @param max_size Maximum size to read
  * @param bytes_read Pointer to store number of bytes actually read
@@ -77,7 +77,7 @@ esp_err_t storage_list_files(const char *base_path, int max_files, char files[][
 /**
  * @brief Log every regular file under /storage (recursive) at INFO — for serial monitor during boot.
  *
- * Each line is one full path, e.g. `/storage/Logos/Cobra_text_blk_BG.png`.
+ * Each line is one full path, e.g. `/storage/Logos/Cobra_text.bin`.
  */
 void storage_log_all_files(void);
 

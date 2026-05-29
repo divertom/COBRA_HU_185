@@ -44,6 +44,22 @@ static char s_remote_display_name[64];
 static esp_bd_addr_t s_bonded_bda[MAX_BONDED_DEVICES];
 static uint16_t s_bonded_count = 0;
 
+typedef enum {
+    DISC_PHASE_HID = 0,
+    DISC_PHASE_BAT,
+} disc_phase_t;
+
+static disc_phase_t s_disc_phase = DISC_PHASE_HID;
+
+static const esp_bt_uuid_t s_hid_service_uuid = {
+    .len = ESP_UUID_LEN_16,
+    .uuid = {.uuid16 = HID_SERVICE_UUID},
+};
+static const esp_bt_uuid_t s_bat_service_uuid = {
+    .len = ESP_UUID_LEN_16,
+    .uuid = {.uuid16 = BAT_SERVICE_UUID},
+};
+
 static void store_battery_level_byte(uint8_t raw)
 {
     if (raw <= 100u) {
@@ -72,7 +88,8 @@ static void stash_remote_adv_display_name(const esp_ble_gap_cb_param_t *gap_para
 static void write_cccd_enable_notify(esp_gatt_if_t gattc_if, uint16_t char_handle,
                                      uint16_t svc_start, uint16_t svc_end);
 static void try_discover_battery_and_read(esp_gatt_if_t gattc_if);
-static void bt_reset_remote_gadget_state_after_disconnect(void);
+static void start_hid_service_discovery(esp_gatt_if_t gattc_if);
+static void finalize_hid_characteristics(esp_gatt_if_t gattc_if);
 
 void Wireless_Init(void)
 {
@@ -83,15 +100,7 @@ void Wireless_Init(void)
     }
     ESP_ERROR_CHECK(ret);
 
-    xTaskCreatePinnedToCore(
-        WIFI_Init,
-        "WIFI task",
-        4096,
-        NULL,
-        1,
-        NULL,
-        0);
-
+    /* Start BLE first; WiFi is brought up from BLE_Init after the controller is ready. */
     xTaskCreatePinnedToCore(
         BLE_Init,
         "BLE task",
@@ -112,8 +121,13 @@ void WIFI_Init(void *arg)
     esp_wifi_set_mode(WIFI_MODE_STA);
     esp_wifi_start();
 
-    WIFI_NUM = WIFI_Scan();
-    printf("WIFI:%d\r\n", WIFI_NUM);
+    /* Skip blocking scan at boot — it contends with BLE GATT discovery for internal heap. */
+    WiFi_Scan_Finish = 1;
+    WIFI_NUM = 0;
+    if (BLE_Scan_Finish == 1) {
+        Scan_finish = 1;
+    }
+    ESP_LOGI(GATTC_TAG, "WiFi STA up (scan deferred)");
 
     vTaskDelete(NULL);
 }
@@ -180,6 +194,15 @@ void BLE_Init(void *arg)
     ESP_ERROR_CHECK(esp_ble_gap_register_callback(gap_cb));
     ESP_ERROR_CHECK(esp_ble_gattc_register_callback(gattc_cb));
     ESP_ERROR_CHECK(esp_ble_gattc_app_register(REMOTE_APP_ID));
+
+    xTaskCreatePinnedToCore(
+        WIFI_Init,
+        "WIFI task",
+        4096,
+        NULL,
+        1,
+        NULL,
+        0);
 
     vTaskDelete(NULL);
 }
@@ -426,6 +449,72 @@ static bt_remote_event_t usage_to_event(uint16_t usage)
     }
 }
 
+static void start_hid_service_discovery(esp_gatt_if_t gattc_if)
+{
+    s_disc_phase = DISC_PHASE_HID;
+    s_hid_service_start = ESP_GATT_ILLEGAL_HANDLE;
+    s_hid_service_end = ESP_GATT_ILLEGAL_HANDLE;
+    s_hid_report_char_handle = ESP_GATT_ILLEGAL_HANDLE;
+    esp_err_t err = esp_ble_gattc_search_service(gattc_if, s_conn_id, (esp_bt_uuid_t *)&s_hid_service_uuid);
+    if (err != ESP_OK) {
+        ESP_LOGE(GATTC_TAG, "HID service search failed: %s", esp_err_to_name(err));
+        esp_ble_gattc_close(gattc_if, s_conn_id);
+    }
+}
+
+static void finalize_hid_characteristics(esp_gatt_if_t gattc_if)
+{
+    if (s_hid_service_start == ESP_GATT_ILLEGAL_HANDLE) {
+        ESP_LOGW(GATTC_TAG, "HID service not found (remote may be Classic-only)");
+        esp_ble_gattc_close(gattc_if, s_conn_id);
+        return;
+    }
+    uint16_t count = 0;
+    esp_bt_uuid_t report_uuid = {
+        .len = ESP_UUID_LEN_16,
+        .uuid = {.uuid16 = HID_REPORT_CHAR_UUID}
+    };
+    esp_gatt_status_t status = esp_ble_gattc_get_attr_count(
+        gattc_if,
+        s_conn_id,
+        ESP_GATT_DB_CHARACTERISTIC,
+        s_hid_service_start,
+        s_hid_service_end,
+        ESP_GATT_ILLEGAL_HANDLE,
+        &count);
+    if (status != ESP_GATT_OK || count == 0) {
+        ESP_LOGW(GATTC_TAG, "No HID report characteristics");
+        esp_ble_gattc_close(gattc_if, s_conn_id);
+        return;
+    }
+
+    esp_gattc_char_elem_t *chars = (esp_gattc_char_elem_t *)calloc(count, sizeof(esp_gattc_char_elem_t));
+    if (chars == NULL) {
+        ESP_LOGE(GATTC_TAG, "No memory for char discovery");
+        esp_ble_gattc_close(gattc_if, s_conn_id);
+        return;
+    }
+
+    status = esp_ble_gattc_get_char_by_uuid(
+        gattc_if,
+        s_conn_id,
+        s_hid_service_start,
+        s_hid_service_end,
+        report_uuid,
+        chars,
+        &count);
+
+    if (status == ESP_GATT_OK && count > 0) {
+        s_hid_report_char_handle = chars[0].char_handle;
+        ESP_LOGI(GATTC_TAG, "HID report char handle=0x%04x", s_hid_report_char_handle);
+        esp_ble_gattc_register_for_notify(gattc_if, s_remote_bda, s_hid_report_char_handle);
+    } else {
+        ESP_LOGW(GATTC_TAG, "HID report characteristic not found");
+        esp_ble_gattc_close(gattc_if, s_conn_id);
+    }
+    free(chars);
+}
+
 static void start_ble_scan(void)
 {
     if (s_gattc_if == ESP_GATT_IF_NONE) {
@@ -587,72 +676,37 @@ static void gattc_cb(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble
             s_bat_level_char_handle = ESP_GATT_ILLEGAL_HANDLE;
             s_remote_battery_percent = REMOTE_BAT_PCT_UNKNOWN;
             ESP_LOGI(GATTC_TAG, "Connected to %s", REMOTE_NAME);
-            esp_ble_gattc_search_service(gattc_if, s_conn_id, NULL);
+            esp_ble_set_encryption(param->open.remote_bda, ESP_BLE_SEC_ENCRYPT_NO_MITM);
+            start_hid_service_discovery(gattc_if);
             break;
         case ESP_GATTC_SEARCH_RES_EVT:
             if (param->search_res.srvc_id.uuid.len == ESP_UUID_LEN_16 &&
-                param->search_res.srvc_id.uuid.uuid.uuid16 == HID_SERVICE_UUID) {
+                param->search_res.srvc_id.uuid.uuid.uuid16 == HID_SERVICE_UUID &&
+                s_disc_phase == DISC_PHASE_HID) {
                 s_hid_service_start = param->search_res.start_handle;
                 s_hid_service_end = param->search_res.end_handle;
             } else if (param->search_res.srvc_id.uuid.len == ESP_UUID_LEN_16 &&
-                       param->search_res.srvc_id.uuid.uuid.uuid16 == BAT_SERVICE_UUID) {
+                       param->search_res.srvc_id.uuid.uuid.uuid16 == BAT_SERVICE_UUID &&
+                       s_disc_phase == DISC_PHASE_BAT) {
                 s_bat_service_start = param->search_res.start_handle;
                 s_bat_service_end = param->search_res.end_handle;
             }
             break;
-        case ESP_GATTC_SEARCH_CMPL_EVT: {
-            if (s_hid_service_start == ESP_GATT_ILLEGAL_HANDLE) {
-                ESP_LOGW(GATTC_TAG, "HID service not found (remote may be Classic-only)");
-                esp_ble_gattc_close(gattc_if, s_conn_id);
-                break;
-            }
-            uint16_t count = 0;
-            esp_bt_uuid_t report_uuid = {
-                .len = ESP_UUID_LEN_16,
-                .uuid = {.uuid16 = HID_REPORT_CHAR_UUID}
-            };
-            esp_gatt_status_t status = esp_ble_gattc_get_attr_count(
-                gattc_if,
-                s_conn_id,
-                ESP_GATT_DB_CHARACTERISTIC,
-                s_hid_service_start,
-                s_hid_service_end,
-                ESP_GATT_ILLEGAL_HANDLE,
-                &count);
-            if (status != ESP_GATT_OK || count == 0) {
-                ESP_LOGW(GATTC_TAG, "No HID report characteristics");
-                esp_ble_gattc_close(gattc_if, s_conn_id);
-                break;
-            }
-
-            esp_gattc_char_elem_t *chars = (esp_gattc_char_elem_t *)calloc(count, sizeof(esp_gattc_char_elem_t));
-            if (chars == NULL) {
-                ESP_LOGE(GATTC_TAG, "No memory for char discovery");
-                esp_ble_gattc_close(gattc_if, s_conn_id);
-                break;
-            }
-
-            status = esp_ble_gattc_get_char_by_uuid(
-                gattc_if,
-                s_conn_id,
-                s_hid_service_start,
-                s_hid_service_end,
-                report_uuid,
-                chars,
-                &count);
-
-            if (status == ESP_GATT_OK && count > 0) {
-                s_hid_report_char_handle = chars[0].char_handle;
-                ESP_LOGI(GATTC_TAG, "HID report char handle=0x%04x", s_hid_report_char_handle);
-                esp_ble_gattc_register_for_notify(gattc_if, s_remote_bda, s_hid_report_char_handle);
+        case ESP_GATTC_SEARCH_CMPL_EVT:
+            if (s_disc_phase == DISC_PHASE_HID) {
+                finalize_hid_characteristics(gattc_if);
+                s_disc_phase = DISC_PHASE_BAT;
+                s_bat_service_start = ESP_GATT_ILLEGAL_HANDLE;
+                s_bat_service_end = ESP_GATT_ILLEGAL_HANDLE;
+                esp_err_t err = esp_ble_gattc_search_service(
+                    gattc_if, s_conn_id, (esp_bt_uuid_t *)&s_bat_service_uuid);
+                if (err != ESP_OK) {
+                    ESP_LOGW(GATTC_TAG, "Battery service search failed: %s", esp_err_to_name(err));
+                }
+            } else if (s_disc_phase == DISC_PHASE_BAT) {
                 try_discover_battery_and_read(gattc_if);
-            } else {
-                ESP_LOGW(GATTC_TAG, "HID report characteristic not found");
-                esp_ble_gattc_close(gattc_if, s_conn_id);
             }
-            free(chars);
             break;
-        }
         case ESP_GATTC_REG_FOR_NOTIFY_EVT:
             if (param->reg_for_notify.status != ESP_GATT_OK) {
                 ESP_LOGE(GATTC_TAG, "register notify failed: 0x%x", param->reg_for_notify.status);
@@ -683,6 +737,7 @@ static void gattc_cb(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble
         case ESP_GATTC_DISCONNECT_EVT:
             s_is_connected = false;
             s_is_connecting = false;
+            s_disc_phase = DISC_PHASE_HID;
             s_hid_service_start = ESP_GATT_ILLEGAL_HANDLE;
             s_hid_service_end = ESP_GATT_ILLEGAL_HANDLE;
             s_hid_report_char_handle = ESP_GATT_ILLEGAL_HANDLE;

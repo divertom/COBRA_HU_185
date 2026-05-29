@@ -1,0 +1,3 @@
+# Used by tools/convert_artwork.py — install into the ESP-IDF Python env when needed:
+#   pip install -r tools/requirements-artwork.txt
+Pillow>=10.0.0

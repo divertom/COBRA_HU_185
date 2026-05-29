@@ -1,56 +1,38 @@
-# Storage Directory
+# Storage Directory (SPIFFS source tree)
 
-This directory contains files that will be uploaded to the ESP32-S3 device's SPIFFS partition.
+Contents of this directory are turned into the **SPIFFS** image for partition **`userdata`** (see root [`CMakeLists.txt`](../CMakeLists.txt): `spiffs_create_partition_image`).
 
-## Directory Structure
+Firmware mounts this partition at **`/storage`** (`Storage_Manager`). LVGL accesses the same tree via filesystem drive **`A:`** (`lvgl_spiffs_assets_fs_register`).
 
-- `images/` - Image files (PNG, JPG, etc.) for display on the device
-- `config/` - Configuration files (JSON, TXT, etc.) for device settings
+## Raster images (generated)
 
-## How to Upload Files
+Raster graphics come from **`artwork/`**. On each project build CMake runs:
 
-### Method 1: Using ESP-IDF mkspiffs tool
+1. **`tools/convert_artwork.py`** — mirrors folder structure under `storage/` as `.bin` files (LVGL 8 compatible).
+2. **SPIFFS image generation** — packs `storage/` into `userdata.bin` (depends on the conversion step).
 
-1. Build the SPIFFS image:
+Do **not** commit or hand-edit generated `*.bin` files under `storage/` (they are typically gitignored). Edit sources in **`artwork/`** only.
+
+To force reconversion without a full clean:
+
 ```bash
-idf.py spiffsgen
+python tools/convert_artwork.py --src artwork --dst storage --force
 ```
 
-2. Flash the SPIFFS partition:
+Install tooling dependency in the ESP-IDF Python env if needed:
+
 ```bash
-idf.py spiffs-flash
+pip install -r tools/requirements-artwork.txt
 ```
 
-### Method 2: Using mkspiffs tool directly
+## Other files
 
-1. Install mkspiffs (if not already installed):
-```bash
-pip install mkspiffs
-```
+Non-image payloads (JSON, placeholders, `.gitkeep`, etc.) are copied into SPIFFS as-is; the converter ignores non-supported extensions.
 
-2. Create SPIFFS image:
-```bash
-mkspiffs -c storage -b 4096 -p 256 -s 0x5C0000 build/storage.bin
-```
+## Flashing
 
-3. Flash to device:
-```bash
-esptool.py --chip esp32s3 --port COMx write_flash 0x290000 build/storage.bin
-```
+A normal **`idf.py build`** regenerates binaries and SPIFFS; **`idf.py flash`** flashes firmware including the userdata image when **`FLASH_IN_PROJECT`** is enabled.
 
-### Method 3: Using ESP-IDF component (recommended)
+## Capacity
 
-The project is configured to automatically create a SPIFFS image during build.
-Run:
-```bash
-idf.py build
-idf.py flash
-```
-
-## Notes
-
-- Maximum file size depends on your SPIFFS partition size (currently 5900K)
-- File names are case-sensitive
-- Use forward slashes (/) in file paths, not backslashes
-- Total size of all files must fit within the partition size
-
+SPIFFS partition size is defined by your **`partitions.csv`** / **`sdkconfig`**. Keep total `storage/` size under that budget.

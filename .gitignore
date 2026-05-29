@@ -42,6 +42,9 @@ tools/node_modules/
 *.log
 *.bak
 
+# Raster builds — keep sources under artwork/ only; never commit misplaced bins next to PNGs there.
+artwork/**/*.bin
+
 # Optimized image files (can be regenerated)
 storage/images/*.raw
 # Generated header files (hard-coded images - not used, use SPIFFS instead)
