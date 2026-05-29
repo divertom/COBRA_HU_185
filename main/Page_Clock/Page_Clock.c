@@ -379,7 +379,8 @@ esp_err_t page_clock_render(uint8_t subpage_index, lv_obj_t *root)
             const lv_coord_t iw = (lv_coord_t)((int32_t)cobra_w * (int32_t)cobra_zoom / 256);
             const lv_coord_t ih = (lv_coord_t)((int32_t)cobra_h * (int32_t)cobra_zoom / 256);
             const lv_coord_t y_top  = y_mid - ih / 2;
-            const lv_coord_t x_left = (GAUGE_PIXEL_SIZE - iw) / 2;
+            /* Center pivot is image midpoint: screen center = x + cobra_w/2 (not x + iw/2). */
+            const lv_coord_t x_left = (GAUGE_PIXEL_SIZE - cobra_w) / 2;
 
             lv_obj_set_pos(logo, x_left, y_top);
             lv_obj_move_foreground(logo);
