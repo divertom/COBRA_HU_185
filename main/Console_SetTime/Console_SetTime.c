@@ -1,6 +1,6 @@
 #include "Console_SetTime.h"
 
-#include "PCF85063.h"
+#include "Datetime_Set.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -22,23 +22,6 @@ static bool is_digits12(const char *s)
         }
     }
     return true;
-}
-
-static bool is_leap_year(unsigned y)
-{
-    return ((y % 4U == 0U) && (y % 100U != 0U)) || (y % 400U == 0U);
-}
-
-static unsigned days_in_month(unsigned y, unsigned m)
-{
-    static const unsigned md[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-    if (m < 1U || m > 12U) {
-        return 0U;
-    }
-    if (m == 2U && is_leap_year(y)) {
-        return 29U;
-    }
-    return md[m - 1U];
 }
 
 static int parse_uint(const char *s, size_t n, unsigned *out)
@@ -79,38 +62,15 @@ static void try_handle_settime(const char *line)
         return;
     }
 
-    if (hh > 23U || mm > 59U || mo < 1U || mo > 12U) {
-        printf("settime: invalid time or month\r\n");
+    esp_err_t err = datetime_set((uint16_t)yyyy, (uint8_t)mo, (uint8_t)dd,
+                                 (uint8_t)hh, (uint8_t)mm, 0U);
+    if (err != ESP_OK) {
+        printf("settime: invalid date/time\r\n");
         return;
     }
 
-    if (yyyy < (unsigned)YEAR_OFFSET || yyyy > (unsigned)YEAR_OFFSET + 99U) {
-        printf("settime: year must be %d..%d for PCF85063\r\n", YEAR_OFFSET, YEAR_OFFSET + 99);
-        return;
-    }
-
-    const unsigned dim = days_in_month(yyyy, mo);
-    if (dim == 0U || dd < 1U || dd > dim) {
-        printf("settime: invalid day for calendar date\r\n");
-        return;
-    }
-
-    datetime_t t = {0};
-    t.year   = (uint16_t)yyyy;
-    t.month  = (uint8_t)mo;
-    t.day    = (uint8_t)dd;
-    t.hour   = (uint8_t)hh;
-    t.minute = (uint8_t)mm;
-    t.second = 0U;
-    t.dotw   = PCF85063_Weekday_Sunday0(t.year, t.month, t.day);
-
-    PCF85063_Set_All(t);
-    /* Do not call PCF85063_Read_Time here: Set_All holds the same non-recursive mutex. */
-    datetime = t;
-
-    printf("settime: OK %04u-%02u-%02u %02u:%02u dotw=%u\r\n",
-           (unsigned)t.year, (unsigned)t.month, (unsigned)t.day,
-           (unsigned)t.hour, (unsigned)t.minute, (unsigned)t.dotw);
+    printf("settime: OK %04u-%02u-%02u %02u:%02u\r\n",
+           yyyy, mo, dd, hh, mm);
 }
 
 static void console_settime_task(void *arg)

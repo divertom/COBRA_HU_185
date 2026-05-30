@@ -157,6 +157,7 @@
                 <svg aria-hidden="true"><use href="#icon-sync"></use></svg>
                 Set Time
               </button>
+              <p class="action-status" id="rtc-status" aria-live="polite"></p>
             </div>
           </div>
         </article>
@@ -172,32 +173,9 @@
           </div>
           <div class="card-control">
             <ul class="reorder-list" id="reorder-list">
-              <li class="reorder-item" draggable="true" data-page="dashboard">
-                <svg class="drag-handle" aria-hidden="true"><use href="#icon-drag"></use></svg>
-                <span class="item-num">1</span>
-                <span class="item-name">Dashboard</span>
-              </li>
-              <li class="reorder-item" draggable="true" data-page="gauges">
-                <svg class="drag-handle" aria-hidden="true"><use href="#icon-drag"></use></svg>
-                <span class="item-num">2</span>
-                <span class="item-name">Gauges</span>
-              </li>
-              <li class="reorder-item" draggable="true" data-page="trip">
-                <svg class="drag-handle" aria-hidden="true"><use href="#icon-drag"></use></svg>
-                <span class="item-num">3</span>
-                <span class="item-name">Trip</span>
-              </li>
-              <li class="reorder-item" draggable="true" data-page="tpms">
-                <svg class="drag-handle" aria-hidden="true"><use href="#icon-drag"></use></svg>
-                <span class="item-num">4</span>
-                <span class="item-name">TPMS</span>
-              </li>
-              <li class="reorder-item" draggable="true" data-page="settings">
-                <svg class="drag-handle" aria-hidden="true"><use href="#icon-drag"></use></svg>
-                <span class="item-num">5</span>
-                <span class="item-name">Settings</span>
-              </li>
+              <li class="reorder-item reorder-loading">Loading pages…</li>
             </ul>
+            <p class="action-status" id="pages-status" aria-live="polite"></p>
           </div>
         </article>
 
@@ -262,6 +240,21 @@
     </main>
   </div>
 
+  <script>
+    (function () {
+      function pad(n) { return n < 10 ? '0' + n : String(n); }
+      function tick() {
+        var t = document.getElementById('phone-time');
+        var d = document.getElementById('phone-date');
+        if (!t || !d) return;
+        var now = new Date();
+        t.textContent = pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
+        d.textContent = now.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+      }
+      tick();
+      window.__cobraClockTimer = setInterval(tick, 1000);
+    })();
+  </script>
   <script src="/service.js"></script>
 </body>
 </html>

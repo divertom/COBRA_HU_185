@@ -395,6 +395,29 @@ svg {
   color: var(--muted);
 }
 
+.action-status {
+  margin: 0.35rem 0 0;
+  min-height: 1.1rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.action-status.is-ok {
+  color: var(--green);
+}
+
+.action-status.is-error {
+  color: #ff6b6b;
+}
+
+.reorder-loading {
+  cursor: default;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
 /* ── Reorder list ── */
 
 .reorder-list {

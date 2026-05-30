@@ -1,8 +1,13 @@
 #include "Config_Portal.h"
 
 #include <errno.h>
+#include <stdio.h>
 #include <string.h>
 
+#include "cJSON.h"
+#include "Datetime_Set.h"
+#include "PCF85063.h"
+#include "UI_Navigation.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
 #include "esp_netif.h"
@@ -11,6 +16,9 @@
 #include "lwip/sockets.h"
 
 static const char *TAG = "Config_Portal";
+
+static const char *portal_http_method_str(httpd_method_t method);
+static void log_http_request(httpd_req_t *req);
 
 /* EMBED_TXTFILES symbols use the file basename (see IDF target_add_binary_data). */
 extern const char service_html_start[] asm("_binary_service_html_start");
@@ -35,6 +43,227 @@ static const portal_static_file_t s_static_files[] = {
     { .uri = "/service.js", .start = service_js_start, .end = service_js_end,
       .content_type = "application/javascript; charset=utf-8" },
 };
+
+#define PORTAL_JSON_BUF_MAX 384
+
+typedef struct {
+    const char *slug;
+    ux_page_id_t page_id;
+} portal_page_slug_t;
+
+static const portal_page_slug_t s_page_slugs[] = {
+    { "boot-logo", UX_PAGE_BOOT_LOGO },
+    { "clock", UX_PAGE_CLOCK },
+    { "speed", UX_PAGE_SPEED },
+    { "acceleration", UX_PAGE_ACCELERATION },
+    { "weather", UX_PAGE_WEATHER },
+    { "status", UX_PAGE_STATUS },
+};
+
+static esp_err_t portal_send_json(httpd_req_t *req, const char *json)
+{
+    httpd_resp_set_type(req, "application/json; charset=utf-8");
+    httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+    return httpd_resp_send(req, json, HTTPD_RESP_USE_STRLEN);
+}
+
+static esp_err_t portal_recv_body(httpd_req_t *req, char *buf, size_t buf_size, size_t *out_len)
+{
+    if (req->content_len <= 0) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if ((size_t)req->content_len >= buf_size) {
+        return ESP_ERR_INVALID_SIZE;
+    }
+
+    size_t total = 0;
+    while (total < (size_t)req->content_len) {
+        int received = httpd_req_recv(req, buf + total, buf_size - total - 1U);
+        if (received <= 0) {
+            return ESP_FAIL;
+        }
+        total += (size_t)received;
+    }
+    buf[total] = '\0';
+    if (out_len != NULL) {
+        *out_len = total;
+    }
+    return ESP_OK;
+}
+
+static esp_err_t portal_api_rtc_get_handler(httpd_req_t *req)
+{
+    log_http_request(req);
+    char body[160];
+    (void)snprintf(body, sizeof(body),
+                   "{\"ok\":true,\"year\":%u,\"month\":%u,\"day\":%u,"
+                   "\"hour\":%u,\"minute\":%u,\"second\":%u}",
+                   (unsigned)datetime.year, (unsigned)datetime.month, (unsigned)datetime.day,
+                   (unsigned)datetime.hour, (unsigned)datetime.minute, (unsigned)datetime.second);
+    return portal_send_json(req, body);
+}
+
+static int portal_json_int(cJSON *obj, const char *key, int *out)
+{
+    cJSON *item = cJSON_GetObjectItem(obj, key);
+    if (!cJSON_IsNumber(item)) {
+        return -1;
+    }
+    *out = item->valueint;
+    return 0;
+}
+
+static esp_err_t portal_api_rtc_set_handler(httpd_req_t *req)
+{
+    log_http_request(req);
+
+    char buf[PORTAL_JSON_BUF_MAX];
+    esp_err_t err = portal_recv_body(req, buf, sizeof(buf), NULL);
+    if (err != ESP_OK) {
+        return portal_send_json(req, "{\"ok\":false,\"error\":\"invalid body\"}");
+    }
+
+    cJSON *json = cJSON_Parse(buf);
+    if (json == NULL) {
+        return portal_send_json(req, "{\"ok\":false,\"error\":\"invalid json\"}");
+    }
+
+    int year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0;
+    if (portal_json_int(json, "year", &year) != 0 || portal_json_int(json, "month", &month) != 0 ||
+        portal_json_int(json, "day", &day) != 0 || portal_json_int(json, "hour", &hour) != 0 ||
+        portal_json_int(json, "minute", &minute) != 0 || portal_json_int(json, "second", &second) != 0) {
+        cJSON_Delete(json);
+        return portal_send_json(req, "{\"ok\":false,\"error\":\"missing fields\"}");
+    }
+    cJSON_Delete(json);
+
+    err = datetime_set((uint16_t)year, (uint8_t)month, (uint8_t)day,
+                       (uint8_t)hour, (uint8_t)minute, (uint8_t)second);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "RTC set rejected: %s", esp_err_to_name(err));
+        return portal_send_json(req, "{\"ok\":false,\"error\":\"invalid date/time\"}");
+    }
+
+    ESP_LOGI(TAG, "RTC set from portal: %04d-%02d-%02d %02d:%02d:%02d",
+             year, month, day, hour, minute, second);
+    return portal_send_json(req, "{\"ok\":true}");
+}
+
+static const portal_page_slug_t *portal_slug_lookup(const char *slug)
+{
+    for (size_t i = 0; i < sizeof(s_page_slugs) / sizeof(s_page_slugs[0]); i++) {
+        if (strcmp(s_page_slugs[i].slug, slug) == 0) {
+            return &s_page_slugs[i];
+        }
+    }
+    return NULL;
+}
+
+static const char *portal_slug_for_page(ux_page_id_t page_id)
+{
+    for (size_t i = 0; i < sizeof(s_page_slugs) / sizeof(s_page_slugs[0]); i++) {
+        if (s_page_slugs[i].page_id == page_id) {
+            return s_page_slugs[i].slug;
+        }
+    }
+    return NULL;
+}
+
+static esp_err_t portal_api_pages_order_get_handler(httpd_req_t *req)
+{
+    log_http_request(req);
+
+    uint8_t order[UX_NAVIGABLE_COUNT];
+    if (ux_navigation_get_page_order(order, UX_NAVIGABLE_COUNT) != ESP_OK) {
+        return portal_send_json(req, "{\"ok\":false,\"error\":\"unavailable\"}");
+    }
+
+    cJSON *arr = cJSON_CreateArray();
+    if (arr == NULL) {
+        return portal_send_json(req, "{\"ok\":false,\"error\":\"no memory\"}");
+    }
+
+    for (size_t i = 0; i < UX_NAVIGABLE_COUNT; i++) {
+        ux_page_id_t page_id = (ux_page_id_t)order[i];
+        const char *slug = portal_slug_for_page(page_id);
+        if (slug == NULL) {
+            continue;
+        }
+        cJSON *item = cJSON_CreateObject();
+        if (item == NULL) {
+            cJSON_Delete(arr);
+            return portal_send_json(req, "{\"ok\":false,\"error\":\"no memory\"}");
+        }
+        cJSON_AddStringToObject(item, "id", slug);
+        cJSON_AddStringToObject(item, "name", ux_navigation_page_name(page_id));
+        cJSON_AddItemToArray(arr, item);
+    }
+
+    cJSON *root = cJSON_CreateObject();
+    if (root == NULL) {
+        cJSON_Delete(arr);
+        return portal_send_json(req, "{\"ok\":false,\"error\":\"no memory\"}");
+    }
+    cJSON_AddBoolToObject(root, "ok", true);
+    cJSON_AddItemToObject(root, "pages", arr);
+
+    char *json = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
+    if (json == NULL) {
+        return portal_send_json(req, "{\"ok\":false,\"error\":\"no memory\"}");
+    }
+
+    esp_err_t ret = portal_send_json(req, json);
+    cJSON_free(json);
+    return ret;
+}
+
+static esp_err_t portal_api_pages_order_post_handler(httpd_req_t *req)
+{
+    log_http_request(req);
+
+    char buf[PORTAL_JSON_BUF_MAX];
+    esp_err_t err = portal_recv_body(req, buf, sizeof(buf), NULL);
+    if (err != ESP_OK) {
+        return portal_send_json(req, "{\"ok\":false,\"error\":\"invalid body\"}");
+    }
+
+    cJSON *json = cJSON_Parse(buf);
+    if (!cJSON_IsArray(json)) {
+        cJSON_Delete(json);
+        return portal_send_json(req, "{\"ok\":false,\"error\":\"expected array\"}");
+    }
+
+    const int count = cJSON_GetArraySize(json);
+    if (count != UX_NAVIGABLE_COUNT) {
+        cJSON_Delete(json);
+        return portal_send_json(req, "{\"ok\":false,\"error\":\"wrong count\"}");
+    }
+
+    uint8_t order[UX_NAVIGABLE_COUNT];
+    for (int i = 0; i < count; i++) {
+        cJSON *item = cJSON_GetArrayItem(json, i);
+        if (!cJSON_IsString(item)) {
+            cJSON_Delete(json);
+            return portal_send_json(req, "{\"ok\":false,\"error\":\"expected string ids\"}");
+        }
+        const portal_page_slug_t *slug = portal_slug_lookup(cJSON_GetStringValue(item));
+        if (slug == NULL) {
+            cJSON_Delete(json);
+            return portal_send_json(req, "{\"ok\":false,\"error\":\"unknown page id\"}");
+        }
+        order[i] = (uint8_t)slug->page_id;
+    }
+    cJSON_Delete(json);
+
+    err = ux_navigation_request_set_page_order(order, UX_NAVIGABLE_COUNT);
+    if (err != ESP_OK) {
+        return portal_send_json(req, "{\"ok\":false,\"error\":\"invalid order\"}");
+    }
+
+    ESP_LOGI(TAG, "Page order update queued from portal");
+    return portal_send_json(req, "{\"ok\":true}");
+}
 
 /** Must outlive the DHCP server (see esp_netif_dhcps_option). */
 static char s_captiveportal_uri[48];
@@ -92,11 +321,22 @@ static void log_http_request(httpd_req_t *req)
     ESP_LOGI(TAG, "HTTP %s %s", portal_http_method_str(req->method), req->uri);
 }
 
+/** EMBED_TXTFILES append a trailing NUL; do not send it in the HTTP body. */
+static size_t portal_embedded_len(const char *start, const char *end)
+{
+    size_t len = (size_t)(end - start);
+    if (len > 0 && start[len - 1] == '\0') {
+        len--;
+    }
+    return len;
+}
+
 static esp_err_t portal_send_static(httpd_req_t *req, const portal_static_file_t *file)
 {
     log_http_request(req);
     httpd_resp_set_type(req, file->content_type);
-    return httpd_resp_send(req, file->start, (size_t)(file->end - file->start));
+    httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+    return httpd_resp_send(req, file->start, portal_embedded_len(file->start, file->end));
 }
 
 static esp_err_t portal_root_handler(httpd_req_t *req)
@@ -133,7 +373,7 @@ static esp_err_t portal_android_probe_handler(httpd_req_t *req)
     }
     httpd_resp_set_type(req, "text/html; charset=utf-8");
     return httpd_resp_send(req, service_html_start,
-                           (size_t)(service_html_end - service_html_start));
+                           portal_embedded_len(service_html_start, service_html_end));
 }
 
 /**
@@ -160,6 +400,13 @@ static esp_err_t portal_not_found_handler(httpd_req_t *req, httpd_err_code_t err
 {
     (void)err;
     log_http_request(req);
+
+    if (strncmp(req->uri, "/api/", 5) == 0) {
+        ESP_LOGW(TAG, "API 404: %s", req->uri);
+        httpd_resp_set_status(req, "404 Not Found");
+        return portal_send_json(req, "{\"ok\":false,\"error\":\"not found\"}");
+    }
+
     ESP_LOGI(TAG, "Captive redirect (404): %s -> /", req->uri);
     return portal_redirect_handler(req);
 }
@@ -179,6 +426,10 @@ static const httpd_uri_t s_portal_uris[] = {
     { .uri = "/service.html", .method = HTTP_GET, .handler = portal_service_handler },
     { .uri = "/service.css", .method = HTTP_GET, .handler = portal_service_css_handler },
     { .uri = "/service.js", .method = HTTP_GET, .handler = portal_service_js_handler },
+    { .uri = "/api/rtc", .method = HTTP_GET, .handler = portal_api_rtc_get_handler },
+    { .uri = "/api/rtc/set", .method = HTTP_POST, .handler = portal_api_rtc_set_handler },
+    { .uri = "/api/pages/order", .method = HTTP_GET, .handler = portal_api_pages_order_get_handler },
+    { .uri = "/api/pages/order", .method = HTTP_POST, .handler = portal_api_pages_order_post_handler },
     PORTAL_URI_GET("/index.html"),
     PORTAL_URI_GET_ANDROID("/generate_204"),
     PORTAL_URI_HEAD_ANDROID("/generate_204"),
@@ -412,7 +663,7 @@ static esp_err_t start_http_server(void)
     const size_t uri_count = sizeof(s_portal_uris) / sizeof(s_portal_uris[0]);
 
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    config.max_uri_handlers = (uint16_t)(uri_count + 2);
+    config.max_uri_handlers = (uint16_t)(uri_count + 4);
     /* LWIP_MAX_SOCKETS=10 → httpd allows at most 7 (3 reserved internally). */
     config.max_open_sockets = 7;
     config.lru_purge_enable = true;

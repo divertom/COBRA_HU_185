@@ -25,6 +25,7 @@ idf_component_register(
                               "./Page_Status/Page_Status.c"
                               "./UI_Navigation/UI_Navigation.c"
                               "./Console_SetTime/Console_SetTime.c"
+                              "./Datetime_Set/Datetime_Set.c"
                               "./Fonts/font_ddin_115.c"
                               "./Fonts/font_ddin_reg_32.c"
                               "./Fonts/font_ddin_reg_20.c"
@@ -55,6 +56,7 @@ idf_component_register(
                               "./Page_Status"
                               "./UI_Navigation"
                               "./Console_SetTime"
+                              "./Datetime_Set"
                               "./Fonts"
                               "."
                        EMBED_TXTFILES
