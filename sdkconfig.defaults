@@ -536,3 +536,8 @@ CONFIG_EN_SPEECH_COMMAND_ID198=""
 CONFIG_EN_SPEECH_COMMAND_ID199=""
 # end of Add English speech commands
 # end of ESP Speech Recognition
+
+#
+# Config captive portal (HTTP server for SoftAP web UI)
+#
+CONFIG_HTTPD_MAX_REQ_HDR_LEN=1024

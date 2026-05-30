@@ -2,16 +2,18 @@
 
 ## Config File Location
 
-The BLE Media Fob requires a configuration file at:
+Device settings live in SPIFFS at:
 ```
 /storage/config/device_config.json
 ```
 
-This file is stored in SPIFFS and contains the BLE MAC address of the media fob.
+This file is **not committed to git**. Copy the template and edit locally:
+
+```cmd
+copy storage\config\device_config.json.example storage\config\device_config.json
+```
 
 ## File Structure
-
-The config file should have this structure:
 
 ```json
 {
@@ -33,89 +35,77 @@ The config file should have this structure:
 }
 ```
 
+### Config portal (WiFi AP)
+
+- The head unit broadcasts **SSID `Cobra HU`** as an **open** network (no password).
+- Join from a phone without entering a passphrase.
+- Rebuild and flash if you change other fields in `device_config.json` (AP settings are not read from JSON).
+
+### BLE media fob (optional)
+
+Set `settings.ble_mac_address` or `settings.ble_device_name` if using BLE fob pairing from config.
+
 ## Setup Instructions
 
-### Option 1: Pre-flash (Recommended)
+1. Copy `device_config.json.example` → `device_config.json` (see above).
+2. Edit `storage/config/device_config.json` as needed (BLE, display, etc.).
+3. Rebuild and flash (`idf.py build flash`).
 
-1. Copy `device_config.json.example` to `device_config.json`:
-   ```cmd
-   copy storage\config\device_config.json.example storage\config\device_config.json
-   ```
+## Captive portal
 
-2. Edit `storage\config\device_config.json` and set your BLE MAC address:
-   ```json
-   "ble_mac_address": "FF:FF:40:00:10:26"
-   ```
+After joining **Cobra HU** on a phone, the OS should open a browser to the configuration page automatically (captive portal). If it does not, browse to `http://192.168.4.1/`.
 
-3. Rebuild and flash the firmware - the config file will be included in SPIFFS
+### Testing on Android
 
-### Option 2: Runtime Creation
+1. Build and flash firmware.
+2. On the phone: **Forget** the **Cobra HU** Wi‑Fi network.
+3. **Settings → Network → Private DNS → Off** (Private DNS bypasses the ESP32 DNS redirect).
+4. Reconnect to **Cobra HU** (no password).
+5. Wait 5–15 seconds for a **“Sign in to network”** or captive portal notification.
+6. On the serial monitor, look for:
+   - `SoftAP IP: 192.168.4.1`
+   - `DNS started on UDP/53`
+   - `HTTP GET /generate_204` (or `/gen_204`) and `Captive redirect: … -> /`
+7. If no popup appears, open a browser and go to **`http://192.168.4.1`** manually.
 
-The firmware will automatically create a default config file if it doesn't exist, but you'll need to:
-1. Flash the firmware
-2. The default config will be created on first boot
-3. Update the MAC address in the created file (requires SPIFFS write access)
+### Testing on iOS
 
-## Finding Your Media Fob MAC Address
-
-To find your media fob's MAC address:
-
-1. **Using a BLE scanner app** on your phone:
-   - Install a BLE scanner app (e.g., "nRF Connect", "BLE Scanner")
-   - Scan for devices
-   - Look for your media fob device
-   - Note the MAC address (format: XX:XX:XX:XX:XX:XX)
-
-2. **Using ESP32 BLE scan**:
-   - The `Wireless.c` code includes BLE scanning functionality
-   - Check serial monitor output during BLE scan
-
-3. **From device documentation**:
-   - Check the media fob's documentation or label
+Same steps as Android (forget network, reconnect). iOS often probes `/hotspot-detect.html`; serial logs should show a redirect to `/`.
 
 ## Troubleshooting
 
+### Captive portal popup does not appear
+
+**Cause**: Android Private DNS, cached Wi‑Fi profile, or OS did not run HTTP probes yet.
+
+**Solution**:
+1. Forget **Cobra HU** and reconnect.
+2. Set **Private DNS → Off** on Android.
+3. Open **`http://192.168.4.1`** manually.
+4. Check serial logs for `DNS answer` / `HTTP GET` lines when the phone connects.
+
 ### Error: "Failed to read config file"
 
-**Cause**: Config file doesn't exist in SPIFFS
+**Cause**: `device_config.json` missing from SPIFFS image.
 
 **Solution**:
-1. Ensure `storage/config/device_config.json` exists in your project
-2. Rebuild and flash the firmware
-3. The file will be included in the SPIFFS image
-
-### Error: "Failed to create default config file"
-
-**Cause**: SPIFFS not initialized or no write access
-
-**Solution**:
-1. Check that `storage_init()` is called before BLE initialization
-2. Verify SPIFFS partition is properly configured in `partitions.csv`
-3. Check SPIFFS mount status in logs
+1. Ensure `storage/config/device_config.json` exists locally (from the example copy).
+2. Rebuild and flash the firmware.
 
 ### Config file not updating
 
-**Cause**: File is read-only in SPIFFS or needs rebuild
+**Cause**: SPIFFS image not reflashed after edit.
 
-**Solution**:
-1. Update `storage/config/device_config.json` in source
-2. Rebuild and reflash firmware
-3. Or use SPIFFS write functions to update at runtime
+**Solution**: Rebuild and reflash after changing `storage/config/device_config.json`.
 
 ## File Paths
 
-- **Source file**: `storage/config/device_config.json`
+- **Local source (gitignored)**: `storage/config/device_config.json`
+- **Template (in git)**: `storage/config/device_config.json.example`
 - **SPIFFS path**: `/storage/config/device_config.json`
 - **API call**: `storage_read_file("/config/device_config.json", ...)`
-  - Storage_Manager prepends `/storage`, so this becomes `/storage/config/device_config.json`
 
 ## Notes
 
-- The config file is included in the SPIFFS image during build
-- Changes to the source file require a rebuild and reflash
-- The firmware will create a default config file if missing (on first boot)
-- Make sure to set the correct BLE MAC address for your media fob
-
-
-
-
+- Never commit `storage/config/device_config.json` — it may contain WiFi credentials for future STA use.
+- Changes require a rebuild and reflash to update SPIFFS.

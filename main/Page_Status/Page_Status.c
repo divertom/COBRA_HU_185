@@ -155,6 +155,18 @@ esp_err_t page_status_render(uint8_t subpage_index, lv_obj_t *root)
     lv_obj_set_style_bg_opa(rule, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_set_style_radius(rule, 0, LV_PART_MAIN);
 
+    lv_obj_t *wifi_hdr = lv_label_create(outer);
+    style_status_label(wifi_hdr);
+    lv_label_set_text(wifi_hdr, "Config");
+
+    lv_obj_t *wifi_ssid = lv_label_create(outer);
+    style_status_label(wifi_ssid);
+    lv_label_set_text(wifi_ssid, "WiFi: Cobra HU");
+
+    lv_obj_t *wifi_url = lv_label_create(outer);
+    style_status_label(wifi_url);
+    lv_label_set_text(wifi_url, "http://192.168.4.1");
+
     status_refresh_timer(NULL);
 
     s_status_ble_timer = lv_timer_create(status_refresh_timer, 800, NULL);

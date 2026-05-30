@@ -42,6 +42,9 @@ tools/node_modules/
 *.log
 *.bak
 
+# Local device secrets (copy from storage/config/device_config.json.example)
+storage/config/device_config.json
+
 # Raster builds — keep sources under artwork/ only; never commit misplaced bins next to PNGs there.
 artwork/**/*.bin
 

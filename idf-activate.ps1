@@ -11,6 +11,7 @@ function Get-IdfRoot {
         if (Test-Path (Join-Path $p "tools\idf.py")) { return $p }
     }
     $candidates = @(
+        (Join-Path $env:USERPROFILE "esp\v5.5.1\esp-idf"),
         (Join-Path $env:USERPROFILE "esp\esp-idf")
     )
     foreach ($c in $candidates) {
@@ -46,7 +47,10 @@ if (-not (Test-Path $export)) {
     [Console]::Error.WriteLine("Missing $export")
     exit 1
 }
+# export.ps1 prints activation text to stderr; do not treat that as a fatal error.
+$ErrorActionPreference = "Continue"
 . $export
+$ErrorActionPreference = "Stop"
 if (-not $Quiet) {
     Write-Host "ESP-IDF ready: IDF_PATH=$env:IDF_PATH" -ForegroundColor Green
 }

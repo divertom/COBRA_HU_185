@@ -14,6 +14,7 @@ idf_component_register(
                               "./BAT_Driver/BAT_Driver.c"
                               "./PWR_Key/PWR_Key.c"
                               "./Wireless/Wireless.c"
+                              "./Config_Portal/Config_Portal.c"
                               "./Storage_Manager/Storage_Manager.c"
                               "./Boot_Logo/Boot_Logo.c"
                               "./Page_BootLogo/Page_BootLogo.c"
@@ -43,6 +44,7 @@ idf_component_register(
                               "./BAT_Driver"
                               "./PWR_Key"
                               "./Wireless"
+                              "./Config_Portal"
                               "./Storage_Manager"
                               "./Boot_Logo"
                               "./Page_BootLogo"
@@ -55,6 +57,10 @@ idf_component_register(
                               "./Console_SetTime"
                               "./Fonts"
                               "."
+                       EMBED_TXTFILES
+                              "./Config_Portal/web/service.html"
+                              "./Config_Portal/web/service.css"
+                              "./Config_Portal/web/service.js"
                        )
 
 # Generated lv_font_conv .c files use:

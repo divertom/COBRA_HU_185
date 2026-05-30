@@ -1,5 +1,7 @@
 #include "Wireless.h"
 
+#include "Config_Portal.h"
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -111,15 +113,33 @@ void Wireless_Init(void)
         0);
 }
 
+#define CONFIG_PORTAL_SSID "Cobra HU"
+
 void WIFI_Init(void *arg)
 {
     esp_netif_init();
     esp_event_loop_create_default();
-    esp_netif_create_default_wifi_sta();
+    esp_netif_create_default_wifi_ap();
+
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     esp_wifi_init(&cfg);
-    esp_wifi_set_mode(WIFI_MODE_STA);
-    esp_wifi_start();
+    esp_wifi_set_mode(WIFI_MODE_AP);
+
+    wifi_config_t wifi_config = { 0 };
+    strncpy((char *)wifi_config.ap.ssid, CONFIG_PORTAL_SSID, sizeof(wifi_config.ap.ssid) - 1);
+    wifi_config.ap.ssid_len = (uint8_t)strlen(CONFIG_PORTAL_SSID);
+    wifi_config.ap.channel = 1;
+    wifi_config.ap.max_connection = 4;
+    wifi_config.ap.authmode = WIFI_AUTH_OPEN;
+    wifi_config.ap.pmf_cfg.required = false;
+
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
+    ESP_ERROR_CHECK(esp_wifi_start());
+
+    esp_err_t portal_ret = config_portal_start();
+    if (portal_ret != ESP_OK) {
+        ESP_LOGE(GATTC_TAG, "Config portal start failed: %s", esp_err_to_name(portal_ret));
+    }
 
     /* Skip blocking scan at boot — it contends with BLE GATT discovery for internal heap. */
     WiFi_Scan_Finish = 1;
@@ -127,22 +147,19 @@ void WIFI_Init(void *arg)
     if (BLE_Scan_Finish == 1) {
         Scan_finish = 1;
     }
-    ESP_LOGI(GATTC_TAG, "WiFi STA up (scan deferred)");
+    ESP_LOGI(GATTC_TAG, "WiFi AP \"%s\" up, open (no password)", CONFIG_PORTAL_SSID);
 
     vTaskDelete(NULL);
 }
 
 uint16_t WIFI_Scan(void)
 {
-    uint16_t ap_count = 0;
-    esp_wifi_scan_start(NULL, true);
-    ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
-    esp_wifi_scan_stop();
+    ESP_LOGW(GATTC_TAG, "WIFI_Scan ignored (AP-only mode)");
     WiFi_Scan_Finish = 1;
-    if (BLE_Scan_Finish == 1 || WiFi_Scan_Finish == 1) {
+    if (BLE_Scan_Finish == 1) {
         Scan_finish = 1;
     }
-    return ap_count;
+    return 0;
 }
 
 void BLE_Init(void *arg)

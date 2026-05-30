@@ -1,5 +1,5 @@
 {
-  "idf.espIdfPath": "${env:USERPROFILE}/esp/esp-idf",
+  "idf.espIdfPath": "C:\\Users\\torst\\esp\\v5.5.1\\esp-idf",
   "idf.toolsPath": "${env:USERPROFILE}/.espressif",
   "idf.gitPath": "git",
   "idf.adapterTargetName": "esp32s3",

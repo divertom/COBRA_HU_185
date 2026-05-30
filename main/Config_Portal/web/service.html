@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Service — Cobra Board Computer</title>
+  <link rel="stylesheet" href="/service.css">
+</head>
+<body>
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+    <symbol id="icon-gear" viewBox="0 0 24 24">
+      <path d="M19.4 13.5c.1-.5.1-1 .1-1.5s0-1-.1-1.5l2-1.5-2-3.5-2.4 1a8 8 0 0 0-2.6-1.5L14 2h-4l-.4 2.5A8 8 0 0 0 7 6L4.6 5 2.6 8.5l2 1.5A8.8 8.8 0 0 0 4.5 12c0 .5 0 1 .1 1.5l-2 1.5 2 3.5 2.4-1a8 8 0 0 0 2.6 1.5L10 22h4l.4-2.5a8 8 0 0 0 2.6-1.5l2.4 1 2-3.5-2-1.5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+      <circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/>
+    </symbol>
+
+    <symbol id="icon-clock" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
+      <path d="M12 7v5l4 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+
+    <symbol id="icon-sync" viewBox="0 0 24 24">
+      <path d="M7 7h8a5 5 0 0 1 4.7 3.3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      <path d="M17 4l3 6h-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M17 17H9a5 5 0 0 1-4.7-3.3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      <path d="M7 20l-3-6h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+
+    <symbol id="icon-list" viewBox="0 0 24 24">
+      <path d="M9 7h10M9 12h10M9 17h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      <circle cx="5" cy="7" r="1.3" fill="currentColor"/>
+      <circle cx="5" cy="12" r="1.3" fill="currentColor"/>
+      <circle cx="5" cy="17" r="1.3" fill="currentColor"/>
+    </symbol>
+
+    <symbol id="icon-drag" viewBox="0 0 24 24">
+      <circle cx="9" cy="6" r="1.2" fill="currentColor"/>
+      <circle cx="15" cy="6" r="1.2" fill="currentColor"/>
+      <circle cx="9" cy="12" r="1.2" fill="currentColor"/>
+      <circle cx="15" cy="12" r="1.2" fill="currentColor"/>
+      <circle cx="9" cy="18" r="1.2" fill="currentColor"/>
+      <circle cx="15" cy="18" r="1.2" fill="currentColor"/>
+    </symbol>
+
+    <symbol id="icon-thermometer" viewBox="0 0 24 24">
+      <path d="M10 14.5V5a3 3 0 0 1 6 0v9.5a5 5 0 1 1-6 0Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+      <path d="M13 7v9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+    </symbol>
+
+    <symbol id="icon-accelerometer" viewBox="0 0 24 24">
+      <path d="M12 4v7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      <path d="M12 11l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      <path d="M12 11l-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      <path d="M5 20h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      <path d="M8 17a6 6 0 0 1 8 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      <circle cx="12" cy="11" r="1.7" fill="currentColor"/>
+    </symbol>
+
+    <symbol id="icon-crosshair" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
+      <circle cx="12" cy="12" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/>
+      <path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+    </symbol>
+
+    <symbol id="icon-bluetooth" viewBox="0 0 24 24">
+      <path d="M7 7l10 10-5 4V3l5 4L7 17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+
+    <symbol id="icon-search" viewBox="0 0 24 24">
+      <circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
+      <path d="M16 16l5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+    </symbol>
+
+    <symbol id="icon-info" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
+      <path d="M12 11v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      <circle cx="12" cy="8" r="1" fill="currentColor"/>
+    </symbol>
+
+    <symbol id="icon-home" viewBox="0 0 24 24">
+      <path d="M3.5 11.5 12 4l8.5 7.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M6 10.5V20h12v-9.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+      <path d="M10 20v-5h4v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+    </symbol>
+
+    <symbol id="icon-status" viewBox="0 0 24 24">
+      <path d="M3 12h3l2-5 4 10 3-8 2 3h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+
+    <symbol id="icon-cobra" viewBox="0 0 48 48">
+      <path d="M24 6c-4 0-8 2-10 6-2 3-2 7 0 10 1.5 2 4 3.5 6 4.5-2 1-4 2.5-5 4.5-1.5 2.5-1 6 1.5 8 2 1.5 5 2 7.5 1.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <path d="M14 16c2-3 6-5 10-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="30" cy="14" r="1.5" fill="currentColor"/>
+      <path d="M32 34l4 4M28 38l6-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+    </symbol>
+  </svg>
+
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="cobra-mark" aria-hidden="true">
+          <svg><use href="#icon-cobra"></use></svg>
+        </div>
+        <div>
+          <div class="brand-title">COBRA</div>
+          <div class="brand-subtitle">BOARD COMPUTER</div>
+        </div>
+      </div>
+
+      <nav class="nav" aria-label="Main navigation">
+        <a class="nav-item" href="#"><svg><use href="#icon-home"></use></svg>Dashboard</a>
+        <a class="nav-item" href="#"><svg><use href="#icon-status"></use></svg>Status</a>
+        <a class="nav-item active" href="/service.html" aria-current="page"><svg><use href="#icon-gear"></use></svg>Service</a>
+        <a class="nav-item" href="#"><svg><use href="#icon-info"></use></svg>About</a>
+      </nav>
+
+      <div class="device-status">
+        <span class="status-dot" aria-hidden="true"></span>
+        <strong>TCU</strong>
+        <span>Online</span>
+        <small>v1.0.0</small>
+      </div>
+    </aside>
+
+    <main class="content">
+      <header class="page-header">
+        <div class="title-group">
+          <svg class="header-icon" aria-hidden="true"><use href="#icon-gear"></use></svg>
+          <div>
+            <h1>Service</h1>
+            <p>Maintenance and configuration</p>
+          </div>
+        </div>
+        <div class="connection-badge">
+          <svg aria-hidden="true"><use href="#icon-bluetooth"></use></svg>
+          Connected
+        </div>
+      </header>
+
+      <div class="service-cards">
+        <!-- Set ESP32 RTC Time -->
+        <article class="service-card">
+          <div class="card-icon" aria-hidden="true">
+            <svg><use href="#icon-clock"></use></svg>
+          </div>
+          <div class="card-body">
+            <h2>Set ESP32 RTC Time</h2>
+            <p>Set the ESP32 RTC time using the current phone time and date.</p>
+          </div>
+          <div class="card-control">
+            <div class="time-panel">
+              <div class="time-preview">
+                <span class="time-preview-label">Phone Time</span>
+                <span class="time-value" id="phone-time">--:--:--</span>
+                <span class="date-value" id="phone-date">—</span>
+              </div>
+              <button type="button" class="btn btn-primary" id="btn-set-time">
+                <svg aria-hidden="true"><use href="#icon-sync"></use></svg>
+                Set Time
+              </button>
+            </div>
+          </div>
+        </article>
+
+        <!-- Reorder Pages -->
+        <article class="service-card">
+          <div class="card-icon" aria-hidden="true">
+            <svg><use href="#icon-list"></use></svg>
+          </div>
+          <div class="card-body">
+            <h2>Reorder Pages</h2>
+            <p>Rearrange the order of pages on the display.</p>
+          </div>
+          <div class="card-control">
+            <ul class="reorder-list" id="reorder-list">
+              <li class="reorder-item" draggable="true" data-page="dashboard">
+                <svg class="drag-handle" aria-hidden="true"><use href="#icon-drag"></use></svg>
+                <span class="item-num">1</span>
+                <span class="item-name">Dashboard</span>
+              </li>
+              <li class="reorder-item" draggable="true" data-page="gauges">
+                <svg class="drag-handle" aria-hidden="true"><use href="#icon-drag"></use></svg>
+                <span class="item-num">2</span>
+                <span class="item-name">Gauges</span>
+              </li>
+              <li class="reorder-item" draggable="true" data-page="trip">
+                <svg class="drag-handle" aria-hidden="true"><use href="#icon-drag"></use></svg>
+                <span class="item-num">3</span>
+                <span class="item-name">Trip</span>
+              </li>
+              <li class="reorder-item" draggable="true" data-page="tpms">
+                <svg class="drag-handle" aria-hidden="true"><use href="#icon-drag"></use></svg>
+                <span class="item-num">4</span>
+                <span class="item-name">TPMS</span>
+              </li>
+              <li class="reorder-item" draggable="true" data-page="settings">
+                <svg class="drag-handle" aria-hidden="true"><use href="#icon-drag"></use></svg>
+                <span class="item-num">5</span>
+                <span class="item-name">Settings</span>
+              </li>
+            </ul>
+          </div>
+        </article>
+
+        <!-- Temperature Unit -->
+        <article class="service-card">
+          <div class="card-icon" aria-hidden="true">
+            <svg><use href="#icon-thermometer"></use></svg>
+          </div>
+          <div class="card-body">
+            <h2>Temperature Unit</h2>
+            <p>Change the temperature unit displayed.</p>
+          </div>
+          <div class="card-control">
+            <div class="temp-toggle" id="temp-toggle" role="group" aria-label="Temperature unit">
+              <button type="button" class="active" data-unit="C" aria-pressed="true">°C</button>
+              <button type="button" data-unit="F" aria-pressed="false">°F</button>
+            </div>
+          </div>
+        </article>
+
+        <!-- Calibrate Accelerometer -->
+        <article class="service-card">
+          <div class="card-icon" aria-hidden="true">
+            <svg><use href="#icon-accelerometer"></use></svg>
+          </div>
+          <div class="card-body">
+            <h2>Calibrate Accelerometer</h2>
+            <p>Calibrate the built-in accelerometer for accurate readings.</p>
+          </div>
+          <div class="card-control">
+            <button type="button" class="btn btn-outline" id="btn-calibrate">
+              <svg aria-hidden="true"><use href="#icon-crosshair"></use></svg>
+              Start Calibration
+            </button>
+          </div>
+        </article>
+
+        <!-- Scan for BT Remote -->
+        <article class="service-card has-footer">
+          <div class="card-icon" aria-hidden="true">
+            <svg><use href="#icon-bluetooth"></use></svg>
+          </div>
+          <div class="card-body">
+            <h2>Scan for BT Remote</h2>
+            <p>Scan for Bluetooth remote control devices.</p>
+          </div>
+          <div class="card-control">
+            <div class="scan-control">
+              <button type="button" class="btn btn-primary" id="btn-scan">
+                <svg aria-hidden="true"><use href="#icon-search"></use></svg>
+                Scan
+              </button>
+              <div class="scan-result" id="scan-result">No devices found</div>
+            </div>
+          </div>
+          <div class="card-footer">
+            <svg aria-hidden="true"><use href="#icon-info"></use></svg>
+            Make sure your device is in pairing mode before scanning.
+          </div>
+        </article>
+      </div>
+    </main>
+  </div>
+
+  <script src="/service.js"></script>
+</body>
+</html>
