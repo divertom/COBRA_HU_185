@@ -54,3 +54,6 @@ void Wireless_GetRemoteDisplayName(char *out, size_t out_len);
 bool Wireless_FormatRemoteMac(char *out, size_t out_len);
 /** Percent 0–100; returns false when unknown / no BLE Battery Service level. */
 bool Wireless_GetRemoteBatteryPercent(uint8_t *out_percent);
+
+/** Start BLE scan if not already running. Safe for TPMS to call. */
+void Wireless_EnsureBleScanActive(void);

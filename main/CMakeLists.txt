@@ -14,6 +14,8 @@ idf_component_register(
                               "./BAT_Driver/BAT_Driver.c"
                               "./PWR_Key/PWR_Key.c"
                               "./Wireless/Wireless.c"
+                              "./TPMS/tesla_tpms_ble.c"
+                              "./TPMS/tpms_parser.c"
                               "./Config_Portal/Config_Portal.c"
                               "./Storage_Manager/Storage_Manager.c"
                               "./Boot_Logo/Boot_Logo.c"
@@ -45,6 +47,7 @@ idf_component_register(
                               "./BAT_Driver"
                               "./PWR_Key"
                               "./Wireless"
+                              "./TPMS"
                               "./Config_Portal"
                               "./Storage_Manager"
                               "./Boot_Logo"
@@ -74,3 +77,6 @@ idf_component_register(
 # We resolve "lvgl.h" via the lvgl__lvgl component's include dir, so force the
 # simple include path for this component.
 target_compile_definitions(${COMPONENT_LIB} PRIVATE LV_LVGL_H_INCLUDE_SIMPLE)
+
+# Set to 1 to enable experimental Tesla TPMS BLE debug logging (serial only).
+target_compile_definitions(${COMPONENT_LIB} PRIVATE ENABLE_TESLA_TPMS_DEBUG=1)

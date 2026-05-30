@@ -1,6 +1,7 @@
 #include "Wireless.h"
 
 #include "Config_Portal.h"
+#include "tesla_tpms_ble.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -52,6 +53,7 @@ typedef enum {
 } disc_phase_t;
 
 static disc_phase_t s_disc_phase = DISC_PHASE_HID;
+static bool s_ble_scan_active = false;
 
 static const esp_bt_uuid_t s_hid_service_uuid = {
     .len = ESP_UUID_LEN_16,
@@ -211,6 +213,10 @@ void BLE_Init(void *arg)
     ESP_ERROR_CHECK(esp_ble_gap_register_callback(gap_cb));
     ESP_ERROR_CHECK(esp_ble_gattc_register_callback(gattc_cb));
     ESP_ERROR_CHECK(esp_ble_gattc_app_register(REMOTE_APP_ID));
+#if ENABLE_TESLA_TPMS_DEBUG
+    tesla_tpms_start();
+    tesla_tpms_init();
+#endif
 
     xTaskCreatePinnedToCore(
         WIFI_Init,
@@ -541,12 +547,22 @@ static void start_ble_scan(void)
     if (s_is_connected || s_is_connecting) {
         return;
     }
-    esp_err_t err = esp_ble_gap_start_scanning(0);
-    if (err != ESP_OK) {
-        ESP_LOGE(GATTC_TAG, "start scanning failed: %s", esp_err_to_name(err));
-    } else {
-        ESP_LOGI(GATTC_TAG, "BLE scanning started for %s", REMOTE_NAME);
+    if (s_ble_scan_active) {
+        return;
     }
+    esp_err_t err = esp_ble_gap_start_scanning(0);
+    if (err == ESP_OK) {
+        ESP_LOGI(GATTC_TAG, "BLE scanning started for %s", REMOTE_NAME);
+    } else if (err == ESP_ERR_INVALID_STATE) {
+        s_ble_scan_active = true;
+    } else {
+        ESP_LOGE(GATTC_TAG, "start scanning failed: %s", esp_err_to_name(err));
+    }
+}
+
+void Wireless_EnsureBleScanActive(void)
+{
+    start_ble_scan();
 }
 
 static bool match_target_remote_name(const esp_ble_gap_cb_param_t *scan_rst)
@@ -619,8 +635,10 @@ static void gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
             start_ble_scan();
             break;
         case ESP_GAP_BLE_SCAN_START_COMPLETE_EVT:
-            if (param->scan_start_cmpl.status != ESP_BT_STATUS_SUCCESS) {
-                ESP_LOGE(GATTC_TAG, "scan start failed, status=%d", param->scan_start_cmpl.status);
+            if (param->scan_start_cmpl.status == ESP_BT_STATUS_SUCCESS) {
+                s_ble_scan_active = true;
+            } else if (param->scan_start_cmpl.status == ESP_BT_STATUS_BUSY) {
+                s_ble_scan_active = true;
             }
             break;
         case ESP_GAP_BLE_SCAN_RESULT_EVT:
@@ -653,6 +671,7 @@ static void gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
             }
             break;
         case ESP_GAP_BLE_SCAN_STOP_COMPLETE_EVT:
+            s_ble_scan_active = false;
             if (s_is_connecting && s_gattc_if != ESP_GATT_IF_NONE) {
                 esp_err_t err = esp_ble_gattc_open(s_gattc_if, s_remote_bda, s_remote_addr_type, true);
                 if (err != ESP_OK) {
@@ -665,12 +684,21 @@ static void gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
         default:
             break;
     }
+
+    tesla_tpms_gap_event(event, param);
 }
 
 static void gattc_cb(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param)
 {
+    if (tesla_tpms_gattc_event(event, gattc_if, param)) {
+        return;
+    }
+
     switch (event) {
         case ESP_GATTC_REG_EVT:
+            if (param->reg.app_id != REMOTE_APP_ID) {
+                break;
+            }
             s_gattc_if = gattc_if;
             ESP_LOGI(GATTC_TAG, "GATTC app registered");
             ESP_ERROR_CHECK(esp_ble_gap_set_scan_params(&ble_scan_params));
