@@ -4,8 +4,10 @@ Place **editable** raster artwork here. At build time these files are converted 
 
 ## Conventions
 
-- **Boot splash** (required for cold boot): [`boot/cobra_boot.png`](boot/cobra_boot.png) → `storage/boot/cobra_boot.bin` → load in firmware as `A:/boot/cobra_boot.bin`.
-- **Other UI images**: any subfolder (e.g. `Logos/`, `ReadMe/`) — same basename, extension becomes `.bin`.
+- **Boot splash** (required): [`boot/cobra_boot.png`](boot/cobra_boot.png) → `storage/boot/cobra_boot.bin` → `A:/boot/cobra_boot.bin`.
+- **Clock wordmark** (required): [`Logos/Cobra_text.png`](Logos/Cobra_text.png) → `storage/Logos/Cobra_text.bin`.
+
+Only add PNGs here that firmware loads from SPIFFS. Orphan `.bin` files under `storage/` are removed on build.
 
 ## Supported formats
 

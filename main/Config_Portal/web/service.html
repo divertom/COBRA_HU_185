@@ -70,6 +70,12 @@
       <path d="M16 16l5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
     </symbol>
 
+    <symbol id="icon-tire" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
+      <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/>
+      <path d="M12 4.5v3M12 16.5v3M4.5 12h3M16.5 12h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+    </symbol>
+
     <symbol id="icon-info" viewBox="0 0 24 24">
       <circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
       <path d="M12 11v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
@@ -113,10 +119,10 @@
         <a class="nav-item" href="#"><svg><use href="#icon-info"></use></svg>About</a>
       </nav>
 
-      <div class="device-status">
+      <div class="device-status is-offline">
         <span class="status-dot" aria-hidden="true"></span>
         <strong>TCU</strong>
-        <span>Online</span>
+        <span>Offline</span>
         <small>v1.0.0</small>
       </div>
     </aside>
@@ -179,20 +185,65 @@
           </div>
         </article>
 
-        <!-- Temperature Unit -->
+        <!-- Units -->
         <article class="service-card">
           <div class="card-icon" aria-hidden="true">
             <svg><use href="#icon-thermometer"></use></svg>
           </div>
           <div class="card-body">
-            <h2>Temperature Unit</h2>
-            <p>Change the temperature unit displayed.</p>
+            <h2>Units</h2>
+            <p>Temperature and tire pressure units for telemetry display.</p>
           </div>
           <div class="card-control">
-            <div class="temp-toggle" id="temp-toggle" role="group" aria-label="Temperature unit">
-              <button type="button" class="active" data-unit="C" aria-pressed="true">°C</button>
-              <button type="button" data-unit="F" aria-pressed="false">°F</button>
+            <div class="units-panel">
+              <div class="units-row">
+                <span class="units-label">Temperature</span>
+                <div class="unit-toggle" id="temp-toggle" role="group" aria-label="Temperature unit">
+                  <button type="button" class="active" data-unit="C" aria-pressed="true">°C</button>
+                  <button type="button" data-unit="F" aria-pressed="false">°F</button>
+                </div>
+              </div>
+              <div class="units-row">
+                <span class="units-label">Pressure</span>
+                <div class="unit-toggle" id="pressure-toggle" role="group" aria-label="Pressure unit">
+                  <button type="button" class="active" data-unit="kpa" aria-pressed="true">kPa</button>
+                  <button type="button" data-unit="psi" aria-pressed="false">psi</button>
+                </div>
+              </div>
             </div>
+            <p class="action-status" id="units-status" aria-live="polite"></p>
+          </div>
+        </article>
+
+        <!-- TPMS Sensors -->
+        <article class="service-card service-card-wide has-footer">
+          <div class="card-icon" aria-hidden="true">
+            <svg><use href="#icon-tire"></use></svg>
+          </div>
+          <div class="card-body">
+            <h2>TPMS Sensors</h2>
+            <p>Scan for tire pressure sensors, assign wheels, and view live telemetry.</p>
+          </div>
+          <div class="card-control">
+            <div class="tpms-panel">
+              <div class="tpms-scan-bar">
+                <button type="button" class="btn btn-primary" id="btn-tpms-scan-start">
+                  <svg aria-hidden="true"><use href="#icon-search"></use></svg>
+                  Start Scan
+                </button>
+                <button type="button" class="btn btn-outline" id="btn-tpms-scan-stop" disabled>
+                  Stop Scan
+                </button>
+                <p class="action-status" id="tpms-scan-status" aria-live="polite"></p>
+              </div>
+              <ul class="tpms-sensor-list" id="tpms-sensor-list">
+                <li class="tpms-sensor-row tpms-loading">Loading sensors…</li>
+              </ul>
+            </div>
+          </div>
+          <div class="card-footer">
+            <svg aria-hidden="true"><use href="#icon-info"></use></svg>
+            Green = seen in last 2 min. While scanning, new sensors appear automatically. Stop scan to assign wheels, set live GATT source, or remove a sensor.
           </div>
         </article>
 

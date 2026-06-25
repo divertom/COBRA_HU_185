@@ -16,6 +16,8 @@ idf_component_register(
                               "./Wireless/Wireless.c"
                               "./TPMS/tesla_tpms_ble.c"
                               "./TPMS/tpms_parser.c"
+                              "./TPMS/tpms_ble_adv.c"
+                              "./TPMS/tpms_manager.c"
                               "./Config_Portal/Config_Portal.c"
                               "./Storage_Manager/Storage_Manager.c"
                               "./Boot_Logo/Boot_Logo.c"
@@ -78,5 +80,5 @@ idf_component_register(
 # simple include path for this component.
 target_compile_definitions(${COMPONENT_LIB} PRIVATE LV_LVGL_H_INCLUDE_SIMPLE)
 
-# Set to 1 to enable experimental Tesla TPMS BLE debug logging (serial only).
+# Set to 1 to enable experimental Tesla TPMS GATT gateway debug (serial only).
 target_compile_definitions(${COMPONENT_LIB} PRIVATE ENABLE_TESLA_TPMS_DEBUG=1)

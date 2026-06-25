@@ -1,6 +1,7 @@
 #include "tesla_tpms_ble.h"
 
 #include "Wireless.h"
+#include "tpms_manager.h"
 #include "tpms_parser.h"
 
 #include <inttypes.h>
@@ -11,6 +12,7 @@
 
 #include "esp_log.h"
 #include "esp_gatt_common_api.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -66,6 +68,10 @@ static bool s_tpms_scan_listener_logged = false;
 static bool s_tpms_gattc_wait_logged = false;
 static uint8_t s_tpms_cccd_retry_count = 0;
 static bool s_tpms_scan_restart_pending = false;
+static bool s_tpms_init_done = false;
+static int64_t s_tpms_last_connect_fail_ms = 0;
+
+#define TPMS_CONNECT_BACKOFF_MS 30000
 
 static esp_bt_uuid_t s_tpms_service_uuid;
 static esp_bt_uuid_t s_tpms_indicate_uuid;
@@ -190,7 +196,8 @@ static bool tpms_name_bytes_match(const uint8_t *name, uint8_t name_len)
     return true;
 }
 
-static bool tpms_remote_blocks_scan(void);
+static bool tpms_remote_blocks_gatt(void);
+static bool tpms_connect_backoff_active(void);
 static void tpms_request_scan(void);
 
 static bool tpms_scan_result_matches(const esp_ble_gap_cb_param_t *param)
@@ -213,15 +220,31 @@ static bool tpms_scan_result_matches(const esp_ble_gap_cb_param_t *param)
     return tpms_adv_blob_has_service_uuid128(adv, total_len);
 }
 
+static void tpms_resume_discovery_scan_if_needed(void)
+{
+    if (!tpms_manager_is_scan_active()) {
+        return;
+    }
+    s_tpms_connect_pending = false;
+    Wireless_RestartBleScanForTpms();
+    tpms_log("[TPMS] portal discovery scan resumed");
+}
+
 static void tpms_try_begin_connect(void)
 {
+    if (tpms_manager_is_scan_active()) {
+        return;
+    }
     if (!s_tpms_connect_pending || s_tpms_connecting || s_tpms_connected) {
         return;
     }
     if (s_tpms_gattc_if == ESP_GATT_IF_NONE) {
         return;
     }
-    if (tpms_remote_blocks_scan()) {
+    if (tpms_remote_blocks_gatt()) {
+        return;
+    }
+    if (tpms_connect_backoff_active()) {
         return;
     }
 
@@ -242,18 +265,31 @@ static void tpms_try_begin_connect(void)
     }
 }
 
-static bool tpms_remote_blocks_scan(void)
+static bool tpms_remote_blocks_gatt(void)
 {
-    bt_remote_conn_state_t remote = Wireless_GetRemoteConnectionState();
-    return remote == BT_REMOTE_CONN_CONNECTING;
+    return Wireless_GetRemoteConnectionState() == BT_REMOTE_CONN_CONNECTING;
+}
+
+static bool tpms_connect_backoff_active(void)
+{
+    if (s_tpms_last_connect_fail_ms == 0) {
+        return false;
+    }
+    int64_t now_ms = (int64_t)(esp_timer_get_time() / 1000);
+    return (now_ms - s_tpms_last_connect_fail_ms) < TPMS_CONNECT_BACKOFF_MS;
 }
 
 static void tpms_restart_shared_scan(void)
 {
+    if (tpms_manager_is_scan_active()) {
+        tpms_resume_discovery_scan_if_needed();
+        return;
+    }
+
     if (!s_tpms_running || s_tpms_connected || s_tpms_connecting) {
         return;
     }
-    if (tpms_remote_blocks_scan()) {
+    if (tpms_remote_blocks_gatt() || tpms_connect_backoff_active()) {
         return;
     }
 
@@ -277,7 +313,7 @@ static void tpms_request_scan(void)
     if (s_tpms_connected || s_tpms_connecting) {
         return;
     }
-    if (tpms_remote_blocks_scan()) {
+    if (tpms_remote_blocks_gatt()) {
         return;
     }
 
@@ -432,39 +468,8 @@ static void tpms_on_connected(esp_gatt_if_t gattc_if)
 
 static void tpms_handle_scan_result(esp_ble_gap_cb_param_t *param)
 {
-    if (!s_tpms_running || s_tpms_connected || s_tpms_connecting) {
-        return;
-    }
-    if (tpms_remote_blocks_scan()) {
-        return;
-    }
-    if (param->scan_rst.search_evt != ESP_GAP_SEARCH_INQ_RES_EVT) {
-        return;
-    }
-
-    if (!s_tpms_scan_listener_logged) {
-        s_tpms_scan_listener_logged = true;
-        tpms_log("[TPMS] listening on shared BLE scan for %s", TPMS_DEVICE_NAME);
-    }
-
-    if (!tpms_scan_result_matches(param)) {
-        return;
-    }
-
-    char addr[24];
-    tpms_format_addr(addr, sizeof(addr), param->scan_rst.bda);
-    tpms_log("[TPMS] found %s addr=%s rssi=%d", TPMS_DEVICE_NAME, addr, param->scan_rst.rssi);
-
-    memcpy(s_tpms_bda, param->scan_rst.bda, sizeof(esp_bd_addr_t));
-    s_tpms_addr_type = param->scan_rst.ble_addr_type;
-    s_tpms_connect_pending = true;
-
-    if (s_tpms_gattc_if != ESP_GATT_IF_NONE) {
-        tpms_try_begin_connect();
-    } else if (!s_tpms_gattc_wait_logged) {
-        s_tpms_gattc_wait_logged = true;
-        tpms_log("[TPMS] waiting for gattc before connect");
-    }
+    (void)param;
+    /* GATT connect is driven only by tpms_manager via set_target/request_connect. */
 }
 
 static void tpms_task(void *arg)
@@ -484,6 +489,11 @@ static void tpms_task(void *arg)
 
 void tesla_tpms_init(void)
 {
+    if (s_tpms_init_done) {
+        return;
+    }
+    s_tpms_init_done = true;
+
     s_tpms_service_uuid.len = ESP_UUID_LEN_128;
     memcpy(s_tpms_service_uuid.uuid.uuid128, s_tpms_service_uuid128, ESP_UUID_LEN_128);
     s_tpms_indicate_uuid.len = ESP_UUID_LEN_128;
@@ -497,8 +507,34 @@ void tesla_tpms_init(void)
     }
 }
 
+void tesla_tpms_set_target(const uint8_t bda[6], esp_ble_addr_type_t addr_type)
+{
+    if (bda == NULL) {
+        return;
+    }
+    memcpy(s_tpms_bda, bda, sizeof(esp_bd_addr_t));
+    s_tpms_addr_type = addr_type;
+    s_tpms_connect_pending = true;
+    tpms_log("[TPMS] target set addr=%02X:%02X:%02X:%02X:%02X:%02X",
+             bda[0], bda[1], bda[2], bda[3], bda[4], bda[5]);
+}
+
+void tesla_tpms_request_connect(void)
+{
+    if (tpms_manager_is_scan_active()) {
+        return;
+    }
+    if (!s_tpms_running || !s_tpms_connect_pending) {
+        return;
+    }
+    tpms_try_begin_connect();
+}
+
 void tesla_tpms_start(void)
 {
+    if (tpms_manager_is_scan_active()) {
+        return;
+    }
     if (s_tpms_running) {
         return;
     }
@@ -506,8 +542,7 @@ void tesla_tpms_start(void)
     /* Do not reset gattc_if — registration may already be in flight. */
     s_tpms_connecting = false;
     s_tpms_connected = false;
-    s_tpms_connect_pending = false;
-    tpms_log("[TPMS] scanner started (target name=%s)", TPMS_DEVICE_NAME);
+    tpms_log("[TPMS] GATT client started (target name=%s)", TPMS_DEVICE_NAME);
 
     if (s_tpms_task == NULL) {
         xTaskCreatePinnedToCore(tpms_task, "tpms_ble", TPMS_TASK_STACK, NULL, TPMS_TASK_PRIO, &s_tpms_task, 0);
@@ -539,6 +574,24 @@ bool tesla_tpms_is_running(void)
     return s_tpms_running;
 }
 
+bool tesla_tpms_is_connected(void)
+{
+    return s_tpms_connected;
+}
+
+bool tesla_tpms_is_connecting(void)
+{
+    return s_tpms_connecting;
+}
+
+bool tesla_tpms_target_matches(const uint8_t bda[6])
+{
+    if (bda == NULL) {
+        return false;
+    }
+    return memcmp(s_tpms_bda, bda, sizeof(esp_bd_addr_t)) == 0;
+}
+
 void tesla_tpms_gap_event(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
 {
     if (!s_tpms_running || param == NULL) {
@@ -555,7 +608,12 @@ void tesla_tpms_gap_event(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *
                 if (err != ESP_OK) {
                     ESP_LOGW(TPMS_LOG_TAG, "[TPMS] gattc open failed: %s", esp_err_to_name(err));
                     s_tpms_connecting = false;
-                    tpms_restart_shared_scan();
+                    s_tpms_last_connect_fail_ms = (int64_t)(esp_timer_get_time() / 1000);
+                    if (tpms_manager_is_scan_active()) {
+                        tpms_resume_discovery_scan_if_needed();
+                    } else {
+                        tpms_restart_shared_scan();
+                    }
                 }
             } else if (s_tpms_scan_requested) {
                 s_tpms_scan_requested = false;
@@ -598,9 +656,15 @@ bool tesla_tpms_gattc_event(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if,
             if (param->open.status != ESP_GATT_OK) {
                 ESP_LOGW(TPMS_LOG_TAG, "[TPMS] connect failed status=0x%x", param->open.status);
                 s_tpms_connecting = false;
-                tpms_restart_shared_scan();
+                s_tpms_last_connect_fail_ms = (int64_t)(esp_timer_get_time() / 1000);
+                if (tpms_manager_is_scan_active()) {
+                    tpms_resume_discovery_scan_if_needed();
+                } else {
+                    tpms_restart_shared_scan();
+                }
                 break;
             }
+            s_tpms_last_connect_fail_ms = 0;
             s_tpms_connecting = false;
             s_tpms_connected = true;
             s_tpms_conn_id = param->open.conn_id;
@@ -698,32 +762,29 @@ bool tesla_tpms_gattc_event(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if,
                 tpms_parse_result_t result = tpms_parser_parse(
                     param->notify.value, param->notify.value_len, &telem);
 
+                tpms_manager_on_gateway_telemetry(s_tpms_bda, result, &telem);
+
                 switch (result) {
                 case TPMS_PARSE_STABLE_OK:
-                    tpms_log("[TPMS] STABLE raw=%s", hex);
-                    tpms_log("[TPMS] STABLE pressure=%" PRIu32 " kPa / %.1f psi temp=%" PRId32 " C",
-                             telem.pressure_kpa, telem.pressure_psi, telem.temp_c);
+                    tpms_log("[TPMS] STABLE pressure=%" PRIu32 " kPa temp=%" PRId32 " C",
+                             telem.pressure_kpa, telem.temp_c);
                     break;
                 case TPMS_PARSE_ACTIVE_OK:
-                    tpms_log("[TPMS] ACTIVE raw=%s", hex);
-                    tpms_log("[TPMS] ACTIVE pressure=%" PRIu32 " kPa / %.1f psi temp=%" PRId32 " C",
-                             telem.pressure_kpa, telem.pressure_psi, telem.temp_c);
+                    tpms_log("[TPMS] ACTIVE pressure=%" PRIu32 " kPa temp=%" PRId32 " C",
+                             telem.pressure_kpa, telem.temp_c);
                     break;
                 case TPMS_PARSE_STATUS_REST:
-                    tpms_log("[TPMS] STATUS raw=%s", hex);
-                    tpms_log("[TPMS] STATUS/REST no telemetry update");
+                    tpms_log("[TPMS] STATUS/REST");
                     break;
                 case TPMS_PARSE_STARTUP_INFO:
-                    tpms_log("[TPMS] STARTUP/INFO raw=%s", hex);
+                    tpms_log("[TPMS] STARTUP/INFO");
                     break;
                 case TPMS_PARSE_TELEMETRY_REJECTED:
-                    tpms_log("[TPMS] TELEMETRY raw=%s", hex);
-                    tpms_log("[TPMS] TELEMETRY rejected by sanity limits");
+                    tpms_log("[TPMS] TELEMETRY rejected");
                     break;
                 case TPMS_PARSE_UNKNOWN:
                 default:
-                    tpms_log("[TPMS] UNKNOWN raw=%s len=%u", hex,
-                             (unsigned)param->notify.value_len);
+                    tpms_log("[TPMS] UNKNOWN len=%u", (unsigned)param->notify.value_len);
                     break;
                 }
             }
@@ -732,6 +793,9 @@ bool tesla_tpms_gattc_event(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if,
             ESP_LOGW(TPMS_LOG_TAG, "[TPMS] disconnected reason=0x%x", param->disconnect.reason);
             tpms_reset_connection_state();
             tpms_restart_shared_scan();
+            if (!tpms_manager_is_scan_active()) {
+                tpms_manager_on_gatt_disconnect();
+            }
             break;
         default:
             break;
@@ -743,9 +807,22 @@ bool tesla_tpms_gattc_event(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if,
 #else /* ENABLE_TESLA_TPMS_DEBUG */
 
 void tesla_tpms_init(void) {}
+void tesla_tpms_set_target(const uint8_t bda[6], esp_ble_addr_type_t addr_type)
+{
+    (void)bda;
+    (void)addr_type;
+}
+void tesla_tpms_request_connect(void) {}
 void tesla_tpms_start(void) {}
 void tesla_tpms_stop(void) {}
 bool tesla_tpms_is_running(void) { return false; }
+bool tesla_tpms_is_connected(void) { return false; }
+bool tesla_tpms_is_connecting(void) { return false; }
+bool tesla_tpms_target_matches(const uint8_t bda[6])
+{
+    (void)bda;
+    return false;
+}
 void tesla_tpms_gap_event(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
 {
     (void)event;

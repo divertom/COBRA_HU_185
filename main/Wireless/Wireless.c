@@ -1,7 +1,12 @@
 #include "Wireless.h"
 
 #include "Config_Portal.h"
+#include "Storage_Manager.h"
+#include "tpms_manager.h"
+#include "cJSON.h"
+#if ENABLE_TESLA_TPMS_DEBUG
 #include "tesla_tpms_ble.h"
+#endif
 
 #include <stdlib.h>
 #include <string.h>
@@ -115,10 +120,84 @@ void Wireless_Init(void)
         0);
 }
 
-#define CONFIG_PORTAL_SSID "Cobra HU"
+#define DEFAULT_PORTAL_SSID "Cobra HU Service"
+#define DEVICE_CONFIG_PATH  "/config/device_config.json"
+
+static char s_ap_ssid[33];
+static bool s_ap_ssid_loaded;
+
+static const char *portal_ssid_from_json(cJSON *root)
+{
+    if (root == NULL) {
+        return NULL;
+    }
+
+    cJSON *portal = cJSON_GetObjectItem(root, "service_portal");
+    cJSON *ssid = portal != NULL ? cJSON_GetObjectItem(portal, "ap_ssid") : NULL;
+    if (cJSON_IsString(ssid)) {
+        const char *v = cJSON_GetStringValue(ssid);
+        if (v != NULL && v[0] != '\0') {
+            return v;
+        }
+    }
+
+    /* Legacy: wifi.ssid before service_portal.ap_ssid existed. */
+    cJSON *wifi = cJSON_GetObjectItem(root, "wifi");
+    ssid = wifi != NULL ? cJSON_GetObjectItem(wifi, "ssid") : NULL;
+    if (cJSON_IsString(ssid)) {
+        const char *v = cJSON_GetStringValue(ssid);
+        if (v != NULL && v[0] != '\0') {
+            return v;
+        }
+    }
+
+    return NULL;
+}
+
+static void load_ap_ssid_from_config(void)
+{
+    if (s_ap_ssid_loaded) {
+        return;
+    }
+
+    strncpy(s_ap_ssid, DEFAULT_PORTAL_SSID, sizeof(s_ap_ssid) - 1);
+    s_ap_ssid[sizeof(s_ap_ssid) - 1] = '\0';
+
+    if (storage_file_exists(DEVICE_CONFIG_PATH)) {
+        char buf[1024];
+        size_t bytes_read = 0;
+        if (storage_read_file(DEVICE_CONFIG_PATH, buf, sizeof(buf) - 1, &bytes_read) == ESP_OK) {
+            buf[bytes_read] = '\0';
+            cJSON *root = cJSON_Parse(buf);
+            if (root != NULL) {
+                const char *configured = portal_ssid_from_json(root);
+                if (configured != NULL) {
+                    strncpy(s_ap_ssid, configured, sizeof(s_ap_ssid) - 1);
+                    s_ap_ssid[sizeof(s_ap_ssid) - 1] = '\0';
+                }
+                cJSON_Delete(root);
+            }
+        }
+    }
+
+    s_ap_ssid_loaded = true;
+}
+
+void Wireless_GetApSsid(char *out, size_t out_len)
+{
+    if (out == NULL || out_len == 0U) {
+        return;
+    }
+    out[0] = '\0';
+    load_ap_ssid_from_config();
+    strncpy(out, s_ap_ssid, out_len - 1U);
+    out[out_len - 1U] = '\0';
+}
 
 void WIFI_Init(void *arg)
 {
+    load_ap_ssid_from_config();
+
     esp_netif_init();
     esp_event_loop_create_default();
     esp_netif_create_default_wifi_ap();
@@ -128,8 +207,8 @@ void WIFI_Init(void *arg)
     esp_wifi_set_mode(WIFI_MODE_AP);
 
     wifi_config_t wifi_config = { 0 };
-    strncpy((char *)wifi_config.ap.ssid, CONFIG_PORTAL_SSID, sizeof(wifi_config.ap.ssid) - 1);
-    wifi_config.ap.ssid_len = (uint8_t)strlen(CONFIG_PORTAL_SSID);
+    strncpy((char *)wifi_config.ap.ssid, s_ap_ssid, sizeof(wifi_config.ap.ssid) - 1);
+    wifi_config.ap.ssid_len = (uint8_t)strlen(s_ap_ssid);
     wifi_config.ap.channel = 1;
     wifi_config.ap.max_connection = 4;
     wifi_config.ap.authmode = WIFI_AUTH_OPEN;
@@ -138,9 +217,12 @@ void WIFI_Init(void *arg)
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
 
+    ESP_LOGI(GATTC_TAG, "Service portal AP up, starting captive portal (free heap=%u)",
+             (unsigned)esp_get_free_heap_size());
     esp_err_t portal_ret = config_portal_start();
     if (portal_ret != ESP_OK) {
-        ESP_LOGE(GATTC_TAG, "Config portal start failed: %s", esp_err_to_name(portal_ret));
+        ESP_LOGE(GATTC_TAG, "Config portal start failed: %s (free heap=%u)",
+                 esp_err_to_name(portal_ret), (unsigned)esp_get_free_heap_size());
     }
 
     /* Skip blocking scan at boot — it contends with BLE GATT discovery for internal heap. */
@@ -149,7 +231,7 @@ void WIFI_Init(void *arg)
     if (BLE_Scan_Finish == 1) {
         Scan_finish = 1;
     }
-    ESP_LOGI(GATTC_TAG, "WiFi AP \"%s\" up, open (no password)", CONFIG_PORTAL_SSID);
+    ESP_LOGI(GATTC_TAG, "Service portal AP \"%s\" up, open (no password)", s_ap_ssid);
 
     vTaskDelete(NULL);
 }
@@ -213,10 +295,8 @@ void BLE_Init(void *arg)
     ESP_ERROR_CHECK(esp_ble_gap_register_callback(gap_cb));
     ESP_ERROR_CHECK(esp_ble_gattc_register_callback(gattc_cb));
     ESP_ERROR_CHECK(esp_ble_gattc_app_register(REMOTE_APP_ID));
-#if ENABLE_TESLA_TPMS_DEBUG
-    tesla_tpms_start();
+    tpms_manager_init();
     tesla_tpms_init();
-#endif
 
     xTaskCreatePinnedToCore(
         WIFI_Init,
@@ -544,7 +624,7 @@ static void start_ble_scan(void)
         ESP_LOGW(GATTC_TAG, "GATTC not ready yet");
         return;
     }
-    if (s_is_connected || s_is_connecting) {
+    if ((s_is_connected || s_is_connecting) && !tpms_manager_ble_scan_required()) {
         return;
     }
     if (s_ble_scan_active) {
@@ -563,6 +643,40 @@ static void start_ble_scan(void)
 void Wireless_EnsureBleScanActive(void)
 {
     start_ble_scan();
+}
+
+bool Wireless_IsBleScanActive(void)
+{
+    return s_ble_scan_active;
+}
+
+void Wireless_RestartBleScanForTpms(void)
+{
+    if (s_gattc_if == ESP_GATT_IF_NONE) {
+        ESP_LOGW(GATTC_TAG, "TPMS scan: GATTC not ready yet");
+        return;
+    }
+
+    if (s_ble_scan_active) {
+        esp_err_t err = esp_ble_gap_stop_scanning();
+        if (err == ESP_OK || err == ESP_ERR_INVALID_STATE) {
+            s_ble_scan_active = false;
+        } else {
+            ESP_LOGW(GATTC_TAG, "TPMS scan stop before restart: %s", esp_err_to_name(err));
+        }
+    }
+
+    esp_err_t err = esp_ble_gap_start_scanning(0);
+    if (err == ESP_OK) {
+        s_ble_scan_active = true;
+        ESP_LOGI(GATTC_TAG, "BLE scan restarted for TPMS discovery");
+    } else if (err == ESP_ERR_INVALID_STATE) {
+        s_ble_scan_active = true;
+        ESP_LOGI(GATTC_TAG, "BLE scan already active (TPMS)");
+    } else {
+        ESP_LOGE(GATTC_TAG, "TPMS scan restart failed: %s", esp_err_to_name(err));
+        start_ble_scan();
+    }
 }
 
 static bool match_target_remote_name(const esp_ble_gap_cb_param_t *scan_rst)
@@ -632,7 +746,11 @@ static void gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
             refresh_bonded_device_list();
             break;
         case ESP_GAP_BLE_SCAN_PARAM_SET_COMPLETE_EVT:
-            start_ble_scan();
+            if (tpms_manager_is_scan_active()) {
+                Wireless_RestartBleScanForTpms();
+            } else {
+                start_ble_scan();
+            }
             break;
         case ESP_GAP_BLE_SCAN_START_COMPLETE_EVT:
             if (param->scan_start_cmpl.status == ESP_BT_STATUS_SUCCESS) {
@@ -643,10 +761,12 @@ static void gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
             break;
         case ESP_GAP_BLE_SCAN_RESULT_EVT:
             if (param->scan_rst.search_evt == ESP_GAP_SEARCH_INQ_RES_EVT) {
+                tpms_manager_on_gap_event(event, param);
                 BLE_NUM++;
                 bool name_match = match_target_remote_name(param);
                 bool bond_match = is_bonded_device(param->scan_rst.bda);
-                if (!s_is_connecting && !s_is_connected && (name_match || bond_match)) {
+                if (!s_is_connecting && !s_is_connected && (name_match || bond_match) &&
+                    !tpms_manager_is_scan_active()) {
                     BLE_Scan_Finish = 1;
                     if (WiFi_Scan_Finish == 1) {
                         Scan_finish = 1;
@@ -685,14 +805,18 @@ static void gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
             break;
     }
 
+#if ENABLE_TESLA_TPMS_DEBUG
     tesla_tpms_gap_event(event, param);
+#endif
 }
 
 static void gattc_cb(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param)
 {
+#if ENABLE_TESLA_TPMS_DEBUG
     if (tesla_tpms_gattc_event(event, gattc_if, param)) {
         return;
     }
+#endif
 
     switch (event) {
         case ESP_GATTC_REG_EVT:
@@ -723,6 +847,9 @@ static void gattc_cb(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble
             ESP_LOGI(GATTC_TAG, "Connected to %s", REMOTE_NAME);
             esp_ble_set_encryption(param->open.remote_bda, ESP_BLE_SEC_ENCRYPT_NO_MITM);
             start_hid_service_discovery(gattc_if);
+            if (tpms_manager_ble_scan_required()) {
+                start_ble_scan();
+            }
             break;
         case ESP_GATTC_SEARCH_RES_EVT:
             if (param->search_res.srvc_id.uuid.len == ESP_UUID_LEN_16 &&
@@ -794,6 +921,9 @@ static void gattc_cb(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble
             memset(s_remote_bda, 0, sizeof(s_remote_bda));
             ESP_LOGW(GATTC_TAG, "Remote disconnected, restarting scan");
             start_ble_scan();
+            if (!tpms_manager_is_scan_active() && !tpms_manager_is_rotation_active()) {
+                tpms_manager_request_gateway_link();
+            }
             break;
         default:
             break;

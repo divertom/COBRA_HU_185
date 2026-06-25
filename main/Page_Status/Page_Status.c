@@ -157,11 +157,17 @@ esp_err_t page_status_render(uint8_t subpage_index, lv_obj_t *root)
 
     lv_obj_t *wifi_hdr = lv_label_create(outer);
     style_status_label(wifi_hdr);
-    lv_label_set_text(wifi_hdr, "Config");
+    lv_label_set_text(wifi_hdr, "Service portal");
 
     lv_obj_t *wifi_ssid = lv_label_create(outer);
     style_status_label(wifi_ssid);
-    lv_label_set_text(wifi_ssid, "WiFi: Cobra HU");
+    {
+        char ap_ssid[33];
+        char wifi_line[56];
+        Wireless_GetApSsid(ap_ssid, sizeof(ap_ssid));
+        snprintf(wifi_line, sizeof(wifi_line), "AP: %s", ap_ssid);
+        lv_label_set_text(wifi_ssid, wifi_line);
+    }
 
     lv_obj_t *wifi_url = lv_label_create(outer);
     style_status_label(wifi_url);

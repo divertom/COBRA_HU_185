@@ -123,19 +123,22 @@ The following images have been optimized and are available:
 The project includes a SPIFFS partition for storing files like images and configurations.
 
 ### Storage Directory Structure
-- `storage/images/` - Image files (optimized .raw files)
-- `storage/Logos/` - Boot and UI logos (PNG or raw). The clock wordmark is **`storage/Logos/Cobra_text.png`** (mirror of `artwork/Logos/Cobra_text.png`). Use **RGBA** PNGs only (do **not** run **`tools/optimize_png.py`** here — it flattens alpha onto white). Keep source width modest (on the order of **~440 px**) so decoding and zoom stay reliable on-chip. LVGL loads it as `A:/Logos/Cobra_text.png` → `/storage/Logos/...`.
-- `storage/config/` - Configuration files (JSON, TXT, etc.)
+
+See [`docs/spiffs-storage.md`](docs/spiffs-storage.md). Raster assets are edited under **`artwork/`** and built as **`storage/**/*.bin`**; only runtime files belong in `storage/`:
+
+- `storage/boot/cobra_boot.bin` — boot splash (from `artwork/boot/cobra_boot.png`)
+- `storage/Logos/Cobra_text.bin` — clock wordmark (from `artwork/Logos/Cobra_text.png`, RGBA)
+- `storage/config/device_config.json` — device settings (copy from `config/device_config.json.example`)
 
 ### Adding Files to SPIFFS
-1. Place files in the `storage/` directory
+1. Add or edit sources in `artwork/` (images) or copy/update `storage/config/device_config.json`
 2. Build the project: `idf.py build`
 3. Flash the project: `idf.py flash`
 
 App assets from `storage/` are packaged as **`userdata.bin`** and flashed to the **`userdata`** SPIFFS partition. The **`model`** partition is reserved for ESP-SR speech models (`srmodels.bin`); flashing both images to one address caused `esptool` **overlap at 0x394000**.
 
 > IMPORTANT - SPIFFS is NOT updated by app-only flash.
-> If you change anything under `storage/` (including `storage/Logos/Cobra_text.png`), you MUST run a full `idf.py flash`. `idf.py app-flash` and the VS Code "Flash app only" button only write the application partition, leaving stale files on **`userdata`**. Symptom: the clock wordmark renders as a large white block (stale oversized PNG still on flash).
+> If you change anything under `storage/` or `artwork/`, you MUST run a full `idf.py flash`. `idf.py app-flash` and the VS Code "Flash app only" button only write the application partition, leaving stale files on **`userdata`**. Symptom: the clock wordmark renders as a large white block (stale oversized PNG still on flash).
 >
 > To re-flash **only** the app-storage SPIFFS after `idf.py build`, use the `userdata` offset from `build/flash_args` (with the default `partitions.csv` in this repo it is **`0x957000`**):
 >

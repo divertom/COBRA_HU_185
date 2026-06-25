@@ -1,9 +1,8 @@
 {
   "device_name": "COBRA_HU_185",
   "version": "1.0.0",
-  "wifi": {
-    "ssid": "YourWiFiSSID",
-    "password": "YourWiFiPassword"
+  "service_portal": {
+    "ap_ssid": "Cobra HU Service"
   },
   "display": {
     "brightness": 80,
@@ -12,7 +11,8 @@
   "settings": {
     "language": "en",
     "timezone": "UTC",
-    "ble_mac_address": "FF:FF:40:00:10:26"
+    "ble_mac_address": "FF:FF:40:00:10:26",
+    "temp_unit": "C",
+    "pressure_unit": "kpa"
   }
 }
-

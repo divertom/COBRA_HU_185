@@ -3,6 +3,7 @@
 #include "esp_spiffs.h"
 #include "esp_log.h"
 #include <dirent.h>
+#include <errno.h>
 #include <stdio.h>
 #include <sys/stat.h>
 #include <string.h>
@@ -88,7 +89,7 @@ esp_err_t storage_write_file(const char *path, const void *data, size_t size)
 
     FILE *f = fopen(full_path, "wb");
     if (f == NULL) {
-        ESP_LOGE(TAG, "Failed to open file for writing: %s", full_path);
+        ESP_LOGE(TAG, "Failed to open file for writing: %s (errno=%d)", full_path, errno);
         return ESP_FAIL;
     }
 

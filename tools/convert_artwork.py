@@ -131,6 +131,38 @@ def pixel_payload_true_color_alpha(rgba: Image.Image) -> bytes:
     return bytes(out)
 
 
+def expected_bin_paths(src_root: Path, dst_root: Path) -> set[Path]:
+    """Paths under dst_root that should exist for current artwork sources."""
+    expected: set[Path] = set()
+    for dirpath, _dirnames, filenames in os.walk(src_root):
+        dp = Path(dirpath)
+        for name in filenames:
+            if Path(name).suffix.lower() not in SRC_EXT:
+                continue
+            rel = (dp / name).relative_to(src_root)
+            expected.add(dst_root / rel.with_suffix(".bin"))
+    return expected
+
+
+def prune_orphan_bins(dst_root: Path, expected: set[Path]) -> list[str]:
+    """Remove generated .bin files under dst_root with no matching artwork source."""
+    removed: list[str] = []
+    if not dst_root.is_dir():
+        return removed
+    for dirpath, _dirnames, filenames in os.walk(dst_root):
+        for name in filenames:
+            if Path(name).suffix.lower() != ".bin":
+                continue
+            path = Path(dirpath) / name
+            if path not in expected:
+                path.unlink()
+                try:
+                    removed.append(path.relative_to(dst_root).as_posix())
+                except ValueError:
+                    removed.append(str(path))
+    return removed
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Convert artwork raster images to LVGL 8 SPIFFS .bin assets.")
     ap.add_argument("--src", default="artwork", type=Path, help="Source tree (default: artwork)")
@@ -147,6 +179,7 @@ def main() -> int:
     converted: list[str] = []
     skipped: list[str] = []
     errs: list[str] = []
+    expected_bins = expected_bin_paths(root, dst_root)
 
     for dirpath, _dirnames, filenames in os.walk(root):
         dp = Path(dirpath)
@@ -180,11 +213,18 @@ def main() -> int:
             print(f"ERROR: {e}", file=sys.stderr)
         return 1
 
+    pruned = prune_orphan_bins(dst_root, expected_bins)
+
     for c in sorted(converted):
         print(f"converted: {c}")
     for s in sorted(skipped):
         print(f"skipped:   {s}")
-    print(f"Artwork conversion done — {len(converted)} converted, {len(skipped)} skipped.")
+    for p in sorted(pruned):
+        print(f"pruned:    {p}")
+    print(
+        f"Artwork conversion done — {len(converted)} converted, "
+        f"{len(skipped)} skipped, {len(pruned)} pruned."
+    )
     return 0
 
 

@@ -57,3 +57,12 @@ bool Wireless_GetRemoteBatteryPercent(uint8_t *out_percent);
 
 /** Start BLE scan if not already running. Safe for TPMS to call. */
 void Wireless_EnsureBleScanActive(void);
+
+/** Stop and restart BLE scan (use when starting TPMS discovery). */
+void Wireless_RestartBleScanForTpms(void);
+
+/** True while the SmartRemote GAP scan is running (shared radio). */
+bool Wireless_IsBleScanActive(void);
+
+/** Service portal SoftAP SSID from device_config service_portal.ap_ssid (legacy: wifi.ssid). */
+void Wireless_GetApSsid(char *out, size_t out_len);
